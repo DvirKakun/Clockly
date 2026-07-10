@@ -24,10 +24,9 @@ export function ReportsPage() {
   // Falls back to a calendar month (start day 1) until the tax profile loads.
   const startDay = taxProfile?.pay_period_start_day ?? 1;
   const period = payPeriodRange(cursor.year, cursor.month, startDay);
-  const monthLabel =
-    startDay === 1
-      ? `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`
-      : `${MONTH_NAMES_HE[cursor.month]} ${cursor.year} (${payPeriodRangeLabel(period)})`;
+  // Plain "month year" only. The LTR date range is rendered as its own dir="ltr" element below —
+  // never inlined into this Hebrew string, or the bidi algorithm flips it to end–start on screen.
+  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
 
   // Gate the fetch on the tax profile (which holds the pay-period start day) so a custom-period
   // user never sees a calendar-month window's report for a frame.
@@ -87,7 +86,14 @@ export function ReportsPage() {
           </button>
         </header>
 
-        <p className="-mt-2 text-center text-sm text-black/50 dark:text-white/50">{monthLabel}</p>
+        <div className="-mt-2 text-center">
+          <p className="text-sm text-black/50 dark:text-white/50">{monthLabel}</p>
+          {startDay !== 1 && (
+            <p className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+              {payPeriodRangeLabel(period)}
+            </p>
+          )}
+        </div>
 
         <div className="flex gap-2">
           <Button variant="secondary" fullWidth onClick={handleExportExcel} disabled={!summary || exporting}>
