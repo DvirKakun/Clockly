@@ -72,31 +72,29 @@ export function SignupPage() {
 
   return (
     <AuthLayout compact title="יצירת חשבון">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Input label="שם מלא" required value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="אימייל"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            dir="ltr"
-          />
-          <Input
-            label="אימות אימייל"
-            type="email"
-            required
-            value={confirmEmail}
-            onChange={(e) => setConfirmEmail(e.target.value)}
-            onPaste={(e) => e.preventDefault()}
-            autoComplete="off"
-            dir="ltr"
-            error={touched && !emailsMatch ? 'לא תואם' : undefined}
-          />
-        </div>
+        <Input
+          label="אימייל"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          dir="ltr"
+        />
+        <Input
+          label="אימות אימייל"
+          type="email"
+          required
+          value={confirmEmail}
+          onChange={(e) => setConfirmEmail(e.target.value)}
+          onPaste={(e) => e.preventDefault()}
+          autoComplete="off"
+          dir="ltr"
+          error={touched && !emailsMatch ? 'כתובות האימייל אינן תואמות' : undefined}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -128,7 +126,7 @@ export function SignupPage() {
         </Button>
       </form>
 
-      <div className="my-3 flex items-center gap-3">
+      <div className="my-2.5 flex items-center gap-3">
         <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
         <span className="text-xs text-black/40 dark:text-white/40">או</span>
         <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
@@ -139,7 +137,7 @@ export function SignupPage() {
       <button
         type="button"
         onClick={() => navigate('/login', { state: { direction: -1 } })}
-        className="mt-4 w-full text-center text-sm text-brand-500"
+        className="mt-3 w-full text-center text-sm text-brand-500"
       >
         כבר יש לך חשבון? התחברות
       </button>

@@ -28,9 +28,9 @@ export function AuthLayout({ title, subtitle, compact, children }: AuthLayoutPro
     >
       <div className="mx-auto w-full max-w-sm">
         {compact ? (
-          <div className="mb-3 flex items-center justify-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white">
-              <Clock size={18} />
+          <div className="mb-3 flex flex-col items-center gap-1.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white shadow-md shadow-brand-500/25">
+              <Clock size={20} />
             </div>
             <h1 className="text-lg font-bold">Clockly</h1>
           </div>
