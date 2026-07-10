@@ -124,7 +124,7 @@ export function ShiftFormPage() {
 
             <Input label="תאריך" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
               <Input
                 label="שעת התחלה"
                 type="time"
@@ -169,27 +169,27 @@ export function ShiftFormPage() {
               </button>
             </div>
             {breaks.map((brk, i) => (
-              <div key={i} className="flex items-end gap-2">
-                <Input
-                  label="התחלה"
-                  type="time"
-                  dir="ltr"
-                  value={brk.start_time}
-                  onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, start_time: e.target.value } : b)))}
-                  className="flex-1"
-                />
-                <Input
-                  label="סיום"
-                  type="time"
-                  dir="ltr"
-                  value={brk.end_time}
-                  onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, end_time: e.target.value } : b)))}
-                  className="flex-1"
-                />
+              <div key={i} className="flex items-start gap-2">
+                <div className="flex flex-1 flex-col gap-2">
+                  <Input
+                    label="התחלה"
+                    type="time"
+                    dir="ltr"
+                    value={brk.start_time}
+                    onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, start_time: e.target.value } : b)))}
+                  />
+                  <Input
+                    label="סיום"
+                    type="time"
+                    dir="ltr"
+                    value={brk.end_time}
+                    onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, end_time: e.target.value } : b)))}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setBreaks(breaks.filter((_, j) => j !== i))}
-                  className="mb-2 flex h-9 w-9 items-center justify-center rounded-full text-black/30 dark:text-white/30"
+                  className="mt-6 flex h-9 w-9 items-center justify-center rounded-full text-black/30 dark:text-white/30"
                   aria-label="הסרת הפסקה"
                 >
                   <Trash2 size={16} />
