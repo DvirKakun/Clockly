@@ -13,7 +13,7 @@ import {
   type Workplace,
 } from '@/hooks/useWorkplaces';
 
-const COLORS = ['#7e14ff', '#47bfff', '#ff6b6b', '#22c55e', '#f59e0b', '#ec4899'];
+const COLORS = ['#0f62ed', '#19bfc2', '#ff6b6b', '#22c55e', '#f59e0b', '#ec4899'];
 
 type FormState = {
   name: string;

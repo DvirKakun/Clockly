@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import { Clock } from 'lucide-react';
 
 interface AuthLayoutProps {
   title?: string;
@@ -29,16 +28,12 @@ export function AuthLayout({ title, subtitle, compact, children }: AuthLayoutPro
       <div className="mx-auto w-full max-w-sm">
         {compact ? (
           <div className="mb-3 flex flex-col items-center gap-1.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white shadow-md shadow-brand-500/25">
-              <Clock size={20} />
-            </div>
+            <img src="/logo.png" alt="" width={44} height={44} className="rounded-2xl shadow-md shadow-brand-500/25" />
             <h1 className="text-lg font-bold">Clockly</h1>
           </div>
         ) : (
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white shadow-lg shadow-brand-500/30">
-              <Clock size={30} />
-            </div>
+            <img src="/logo.png" alt="" width={64} height={64} className="rounded-3xl shadow-lg shadow-brand-500/30" />
             <h1 className="text-2xl font-bold">Clockly</h1>
             <p className="text-center text-sm text-black/50 dark:text-white/50">
               {subtitle ?? 'מעקב שעות עבודה וחישוב שכר לפי דיני העבודה בישראל'}
