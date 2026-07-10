@@ -43,7 +43,7 @@ export function SignupPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -52,6 +52,14 @@ export function SignupPage() {
         },
       });
       if (error) throw error;
+      // Supabase deliberately doesn't error when the email already belongs to a confirmed
+      // account (e.g. created via Google) — it returns a look-alike user with no identities
+      // and sends no email, to prevent attackers probing for registered addresses. Detect that
+      // case so we don't tell the user to check an inbox that's getting nothing.
+      if (data.user && data.user.identities?.length === 0) {
+        setError('קיים כבר חשבון עם האימייל הזה (ייתכן שדרך Google). נסה/י להתחבר במקום להירשם.');
+        return;
+      }
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? translateAuthError(err.message) : 'משהו השתבש, נסה/י שוב');
