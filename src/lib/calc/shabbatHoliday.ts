@@ -89,6 +89,55 @@ function shiftRangeUtc(
   return { start, end };
 }
 
+function shiftTotalMinutes(startHHMM: string, endHHMM: string, crossesMidnight: boolean): number {
+  const toMin = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const start = toMin(startHHMM);
+  let end = toMin(endHHMM);
+  if (crossesMidnight || end <= start) end += 24 * 60;
+  return end - start;
+}
+
+/**
+ * The portion of the shift (if any) that overlaps the Shabbat window, expressed as minute
+ * offsets from the shift's own start (0 = shift start) — the same coordinate system
+ * grossEngine's minute-based math already uses, so the engine never has to do its own
+ * date/timezone arithmetic. Returns null if there's no overlap at all.
+ *
+ * Note: like the rest of this shift model, this measures wall-clock minutes (standard
+ * payroll convention — you're paid for clocked hours, not absolute elapsed time), derived
+ * from real sunset/timezone instants for where the boundary falls. A shift whose minutes
+ * happen to straddle the exact instant of Israel's spring/fall clock change could see the
+ * zone split off by up to the DST delta; total payable hours are unaffected either way,
+ * since those come from the shift's own wall-clock start/end, independent of this split.
+ */
+export function shabbatOverlapOffsetMinutes(
+  dateIso: string,
+  startHHMM: string,
+  endHHMM: string,
+  crossesMidnight: boolean,
+  rates: LegalRatesConfig = DEFAULT_RATES
+): { startOffsetMin: number; endOffsetMin: number } | null {
+  const window = shabbatWindowForDate(dateIso, rates);
+  if (!window) return null;
+  const timeZone = rates.shabbatHoliday.location.timeZone;
+  const shift = shiftRangeUtc(dateIso, startHHMM, endHHMM, crossesMidnight, timeZone);
+
+  const overlapStartMs = Math.max(shift.start.getTime(), window.start.getTime());
+  const overlapEndMs = Math.min(shift.end.getTime(), window.end.getTime());
+  if (overlapEndMs <= overlapStartMs) return null;
+
+  const totalMin = shiftTotalMinutes(startHHMM, endHHMM, crossesMidnight);
+  const startOffsetMin = Math.round((overlapStartMs - shift.start.getTime()) / 60_000);
+  const endOffsetMin = Math.round((overlapEndMs - shift.start.getTime()) / 60_000);
+  return {
+    startOffsetMin: Math.max(0, startOffsetMin),
+    endOffsetMin: Math.min(totalMin, endOffsetMin),
+  };
+}
+
 /** Whether the shift falls entirely inside the Shabbat window — safe to auto-mark as a Shabbat shift. */
 export function isShiftFullyInShabbat(
   dateIso: string,
@@ -97,13 +146,13 @@ export function isShiftFullyInShabbat(
   crossesMidnight: boolean,
   rates: LegalRatesConfig = DEFAULT_RATES
 ): boolean {
-  const window = shabbatWindowForDate(dateIso, rates);
-  if (!window) return false;
-  const shift = shiftRangeUtc(dateIso, startHHMM, endHHMM, crossesMidnight, rates.shabbatHoliday.location.timeZone);
-  return shift.start >= window.start && shift.end <= window.end;
+  const overlap = shabbatOverlapOffsetMinutes(dateIso, startHHMM, endHHMM, crossesMidnight, rates);
+  if (!overlap) return false;
+  const totalMin = shiftTotalMinutes(startHHMM, endHHMM, crossesMidnight);
+  return overlap.startOffsetMin <= 0 && overlap.endOffsetMin >= totalMin;
 }
 
-/** Whether the shift overlaps the Shabbat window at all, without being fully inside it — needs a manual look/split. */
+/** Whether the shift overlaps the Shabbat window at all, without being fully inside it. */
 export function shiftPartiallyOverlapsShabbat(
   dateIso: string,
   startHHMM: string,
@@ -111,12 +160,11 @@ export function shiftPartiallyOverlapsShabbat(
   crossesMidnight: boolean,
   rates: LegalRatesConfig = DEFAULT_RATES
 ): boolean {
-  const window = shabbatWindowForDate(dateIso, rates);
-  if (!window) return false;
-  const shift = shiftRangeUtc(dateIso, startHHMM, endHHMM, crossesMidnight, rates.shabbatHoliday.location.timeZone);
-  const overlaps = shift.start < window.end && shift.end > window.start;
-  const fullyInside = shift.start >= window.start && shift.end <= window.end;
-  return overlaps && !fullyInside;
+  const overlap = shabbatOverlapOffsetMinutes(dateIso, startHHMM, endHHMM, crossesMidnight, rates);
+  if (!overlap) return false;
+  const totalMin = shiftTotalMinutes(startHHMM, endHHMM, crossesMidnight);
+  const fullyInside = overlap.startOffsetMin <= 0 && overlap.endOffsetMin >= totalMin;
+  return !fullyInside;
 }
 
 /**

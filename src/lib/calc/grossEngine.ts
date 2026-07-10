@@ -8,13 +8,15 @@ import type {
 } from './types';
 import type { LegalRatesConfig } from './rates';
 import { DEFAULT_RATES } from './rates';
+import { shabbatOverlapOffsetMinutes } from './shabbatHoliday';
 
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 }
 
-function breakDurationMinutes(brk: BreakInput, crossesMidnight: boolean, shiftStartMin: number): number {
+/** A break's [start, end) as minute offsets from the shift's own start (0 = shift start). */
+function breakRangeMinutes(brk: BreakInput, crossesMidnight: boolean, shiftStartMin: number): { start: number; end: number } {
   let start = toMinutes(brk.startTime);
   let end = toMinutes(brk.endTime);
   if (end <= start) end += 24 * 60;
@@ -22,7 +24,26 @@ function breakDurationMinutes(brk: BreakInput, crossesMidnight: boolean, shiftSt
     start += 24 * 60;
     end += 24 * 60;
   }
+  return { start: start - shiftStartMin, end: end - shiftStartMin };
+}
+
+function breakDurationMinutes(brk: BreakInput, crossesMidnight: boolean, shiftStartMin: number): number {
+  const { start, end } = breakRangeMinutes(brk, crossesMidnight, shiftStartMin);
   return Math.max(0, end - start);
+}
+
+/** How many minutes of a break fall within [zoneStart, zoneEnd) (shift-relative offsets). */
+function breakOverlapMinutes(
+  brk: BreakInput,
+  crossesMidnight: boolean,
+  shiftStartMin: number,
+  zoneStart: number,
+  zoneEnd: number
+): number {
+  const { start, end } = breakRangeMinutes(brk, crossesMidnight, shiftStartMin);
+  const overlapStart = Math.max(start, zoneStart);
+  const overlapEnd = Math.min(end, zoneEnd);
+  return Math.max(0, overlapEnd - overlapStart);
 }
 
 /** Overlap in minutes between the shift's absolute time range and the nightly 22:00-06:00 window. */
@@ -89,11 +110,63 @@ export function computeShiftHours(
   let shabbatOvertime175Hours = 0;
   let shabbatOvertime200Hours = 0;
 
-  if (shift.dayType === 'shabbat' || shift.dayType === 'holiday') {
+  // An explicit 'shabbat'/'holiday' choice always treats the whole shift as one zone
+  // (the user's override). For 'regular', check whether the shift's own date/time actually
+  // crosses the Shabbat boundary — a shift starting before Friday's entry and ending after it
+  // (or the reverse, starting inside Shabbat and ending after it exits) gets split into a
+  // regular segment and a Shabbat segment, each paid at its own rate, instead of forcing the
+  // whole shift into a single bucket.
+  const shabbatOverlap =
+    shift.dayType === 'regular'
+      ? shabbatOverlapOffsetMinutes(shift.date, shift.startTime, shift.endTime, shift.crossesMidnight, rates)
+      : null;
+  const isSplitShift = shabbatOverlap != null && !(shabbatOverlap.startOffsetMin <= 0 && shabbatOverlap.endOffsetMin >= totalMinutes);
+
+  if (shift.dayType === 'shabbat' || shift.dayType === 'holiday' || (shabbatOverlap && !isSplitShift)) {
     shabbatBaseHours = Math.min(payableHours, standardDailyHours);
     const remaining = Math.max(0, payableHours - shabbatBaseHours);
     shabbatOvertime175Hours = Math.min(remaining, rates.shabbatHoliday.overtimeFirstTierHours);
     shabbatOvertime200Hours = Math.max(0, remaining - shabbatOvertime175Hours);
+  } else if (isSplitShift && shabbatOverlap) {
+    // Chronological zones: at most one boundary crossing in the common case (pre-Shabbat then
+    // Shabbat, or Shabbat then post-Shabbat); a third zone only appears for an unrealistically
+    // long (~25h+) shift that spans both the entry and exit boundary.
+    const zones: { start: number; end: number; isShabbat: boolean }[] = [];
+    if (shabbatOverlap.startOffsetMin > 0) zones.push({ start: 0, end: shabbatOverlap.startOffsetMin, isShabbat: false });
+    zones.push({ start: shabbatOverlap.startOffsetMin, end: shabbatOverlap.endOffsetMin, isShabbat: true });
+    if (shabbatOverlap.endOffsetMin < totalMinutes) {
+      zones.push({ start: shabbatOverlap.endOffsetMin, end: totalMinutes, isShabbat: false });
+    }
+
+    // The standard-daily-hours budget is one shared pool for the whole shift, consumed
+    // chronologically — it's a single day's threshold for when overtime starts, regardless of
+    // which rate zone the hours fall in. Each zone's overtime tier-1 allowance is independent,
+    // since regular and Shabbat overtime are legally distinct categories.
+    let budgetMin = standardDailyHours * 60;
+    for (const zone of zones) {
+      let zoneUnpaidBreakMin = 0;
+      for (const brk of shift.breaks) {
+        if (brk.isPaid) continue;
+        zoneUnpaidBreakMin += breakOverlapMinutes(brk, shift.crossesMidnight, startMin, zone.start, zone.end);
+      }
+      const zonePayableHours = Math.max(0, zone.end - zone.start - zoneUnpaidBreakMin) / 60;
+
+      const baseHoursThisZone = Math.min(zonePayableHours, budgetMin / 60);
+      budgetMin = Math.max(0, budgetMin - baseHoursThisZone * 60);
+      const remainingThisZone = Math.max(0, zonePayableHours - baseHoursThisZone);
+
+      if (zone.isShabbat) {
+        shabbatBaseHours += baseHoursThisZone;
+        const tier1 = Math.min(remainingThisZone, rates.shabbatHoliday.overtimeFirstTierHours);
+        shabbatOvertime175Hours += tier1;
+        shabbatOvertime200Hours += Math.max(0, remainingThisZone - tier1);
+      } else {
+        regularHours += baseHoursThisZone;
+        const tier1 = Math.min(remainingThisZone, rates.overtime.firstTierHours);
+        overtime125Hours += tier1;
+        overtime150Hours += Math.max(0, remainingThisZone - tier1);
+      }
+    }
   } else {
     regularHours = Math.min(payableHours, standardDailyHours);
     const remaining = Math.max(0, payableHours - regularHours);

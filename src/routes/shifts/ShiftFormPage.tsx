@@ -8,7 +8,9 @@ import { Select } from '@/components/ui/Select';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { useCreateShift, useDeleteShift, useShift, useUpdateShift } from '@/hooks/useShifts';
-import { DEFAULT_RATES, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
+import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
+import { workplaceToRateProfile } from '@/lib/calc/adapters';
+import { formatCurrency } from '@/lib/format';
 
 function todayIso() {
   const d = new Date();
@@ -73,6 +75,32 @@ export function ShiftFormPage() {
     () => shiftPartiallyOverlapsShabbat(date, startTime, endTime, crossesMidnight),
     [date, startTime, endTime, crossesMidnight]
   );
+
+  const selectedWorkplace = workplaces.find((w) => w.id === workplaceId);
+
+  // When the shift straddles the Shabbat boundary and dayType is left on 'auto', the calc
+  // engine splits it into a regular segment and a Shabbat segment automatically (see
+  // grossEngine.computeShiftHours). Preview that split here so the user sees hours/pay per
+  // tier instead of being asked to work it out or split the shift themselves.
+  const splitPreview = useMemo(() => {
+    if (dayTypeChoice !== 'auto' || !straddlesShabbatBoundary || !selectedWorkplace || !startTime || !endTime) {
+      return null;
+    }
+    const rateProfile = workplaceToRateProfile(selectedWorkplace);
+    const result = computeShiftGross(
+      {
+        id: 'preview',
+        date,
+        startTime,
+        endTime,
+        crossesMidnight,
+        dayType: 'regular',
+        breaks: breaks.map((b) => ({ startTime: b.start_time, endTime: b.end_time, isPaid: b.is_paid })),
+      },
+      rateProfile
+    );
+    return result;
+  }, [dayTypeChoice, straddlesShabbatBoundary, selectedWorkplace, date, startTime, endTime, crossesMidnight, breaks]);
 
   useEffect(() => {
     if (existing) {
@@ -196,17 +224,74 @@ export function ShiftFormPage() {
               value={dayTypeChoice}
               onChange={(e) => setDayTypeChoice(e.target.value as DayTypeChoice)}
             >
-              <option value="auto">אוטומטי (זוהה: {dayTypeLabels[detectedDayType]})</option>
+              <option value="auto">
+                אוטומטי ({straddlesShabbatBoundary ? 'מפוצל: רגיל + שבת' : `זוהה: ${dayTypeLabels[detectedDayType]}`})
+              </option>
               <option value="regular">יום רגיל</option>
               <option value="shabbat">שבת</option>
               <option value="holiday">חג</option>
             </Select>
 
-            {dayTypeChoice === 'auto' && straddlesShabbatBoundary && (
-              <div className="flex gap-2 rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                <Info size={14} className="mt-0.5 shrink-0" />
-                המשמרת חוצה את כניסת/יציאת השבת באמצעה — הזיהוי האוטומטי סימן אותה כ&quot;יום
-                רגיל&quot;. לחישוב מדויק, שקלו לפצל לשתי משמרות נפרדות או לבחור ידנית.
+            {splitPreview && (
+              <div className="flex flex-col gap-2 rounded-2xl bg-brand-50 px-3 py-3 text-xs dark:bg-brand-500/10">
+                <div className="flex gap-2 text-brand-800 dark:text-brand-200">
+                  <Info size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    המשמרת חוצה את כניסת השבת — חושבה אוטומטית לפי שעות בכל תעריף (זמן כניסת
+                    השבת הוא אומדן).
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 text-black/70 dark:text-white/70">
+                  {splitPreview.hours.regularHours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.regularHours.toFixed(2)} שעות × 100% (רגיל)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.regularPay)}</span>
+                    </div>
+                  )}
+                  {splitPreview.hours.overtime125Hours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.overtime125Hours.toFixed(2)} שעות × 125% (נוספות)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.overtime125Pay)}</span>
+                    </div>
+                  )}
+                  {splitPreview.hours.overtime150Hours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.overtime150Hours.toFixed(2)} שעות × 150% (נוספות)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.overtime150Pay)}</span>
+                    </div>
+                  )}
+                  {splitPreview.hours.shabbatBaseHours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.shabbatBaseHours.toFixed(2)} שעות × 150% (שבת)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.shabbatBasePay)}</span>
+                    </div>
+                  )}
+                  {splitPreview.hours.shabbatOvertime175Hours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.shabbatOvertime175Hours.toFixed(2)} שעות × 175% (שבת+נוספות)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.shabbatOvertime175Pay)}</span>
+                    </div>
+                  )}
+                  {splitPreview.hours.shabbatOvertime200Hours > 0 && (
+                    <div className="flex justify-between">
+                      <span>{splitPreview.hours.shabbatOvertime200Hours.toFixed(2)} שעות × 200% (שבת+נוספות)</span>
+                      <span className="font-medium">{formatCurrency(splitPreview.shabbatOvertime200Pay)}</span>
+                    </div>
+                  )}
+                  <div className="mt-1 flex justify-between border-t border-black/10 pt-1 font-semibold dark:border-white/10">
+                    <span>סה&quot;כ שכר בסיס למשמרת</span>
+                    <span>
+                      {formatCurrency(
+                        splitPreview.regularPay +
+                          splitPreview.overtime125Pay +
+                          splitPreview.overtime150Pay +
+                          splitPreview.shabbatBasePay +
+                          splitPreview.shabbatOvertime175Pay +
+                          splitPreview.shabbatOvertime200Pay
+                      )}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
           </Card>
