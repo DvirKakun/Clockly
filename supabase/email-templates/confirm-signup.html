@@ -2,6 +2,9 @@
   Supabase template variables used: {{ .ConfirmationURL }}, {{ .Email }}, {{ .Data.full_name }}
   Install: Supabase Dashboard → Authentication → Emails → Templates → "Confirm signup"
   Subject line suggestion: אימות כתובת האימייל שלך ב-Clockly
+
+  RTL note: Gmail strips <html>/<head>/<body> and their attributes, so RTL is set via a dir="rtl"
+  attribute AND inline direction:rtl on the surviving table/td elements, not just on <html>.
 -->
 <!doctype html>
 <html dir="rtl" lang="he">
@@ -12,82 +15,47 @@
     <title>אימות כתובת האימייל</title>
   </head>
   <body style="margin:0; padding:0; background-color:#f8f7fb; font-family:'Segoe UI', Tahoma, Arial, sans-serif;">
-    <!-- preheader (hidden preview text) -->
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
       אמתו את כתובת האימייל שלכם כדי להתחיל להשתמש ב-Clockly
     </div>
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f7fb; padding:32px 16px;">
+    <table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" style="direction:rtl; background-color:#f8f7fb; padding:32px 16px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
-            <!-- header -->
+          <table role="presentation" dir="rtl" width="100%" cellpadding="0" cellspacing="0" style="direction:rtl; max-width:480px; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
             <tr>
               <td align="center" style="padding:32px 32px 8px 32px;">
-                <img
-                  src="https://clockly-app.netlify.app/logo.png"
-                  width="56"
-                  height="56"
-                  alt="Clockly"
-                  style="display:block; border-radius:14px;"
-                />
+                <img src="https://clockly-app.netlify.app/logo.png" width="56" height="56" alt="Clockly" style="display:block; border-radius:14px;" />
                 <div style="margin-top:12px; font-size:20px; font-weight:700; color:#16171d;">Clockly</div>
               </td>
             </tr>
-
-            <!-- body -->
             <tr>
-              <td style="padding:8px 32px 0 32px; text-align:right;">
-                <h1 style="margin:16px 0 8px 0; font-size:20px; line-height:1.4; color:#16171d;">
-                  אימות כתובת האימייל
-                </h1>
-                <p style="margin:0 0 8px 0; font-size:15px; line-height:1.7; color:#4b4d57;">
-                  שלום{{ if .Data.full_name }} {{ .Data.full_name }}{{ end }},
-                </p>
-                <p style="margin:0 0 24px 0; font-size:15px; line-height:1.7; color:#4b4d57;">
-                  כדי להשלים את ההרשמה ל-Clockly ולהתחיל לעקוב אחרי שעות העבודה והשכר שלך, יש
-                  לאמת את כתובת האימייל <strong style="color:#16171d;">{{ .Email }}</strong>.
-                </p>
+              <td dir="rtl" style="direction:rtl; padding:8px 32px 0 32px; text-align:right;">
+                <h1 style="margin:16px 0 8px 0; font-size:20px; line-height:1.4; color:#16171d;">אימות כתובת האימייל</h1>
+                <p style="margin:0 0 8px 0; font-size:15px; line-height:1.7; color:#4b4d57;">שלום{{ if .Data.full_name }} {{ .Data.full_name }}{{ end }},</p>
+                <p style="margin:0 0 24px 0; font-size:15px; line-height:1.7; color:#4b4d57;">כדי להשלים את ההרשמה ל-Clockly ולהתחיל לעקוב אחרי שעות העבודה והשכר שלך, יש לאמת את כתובת האימייל <strong style="color:#16171d;">{{ .Email }}</strong>.</p>
               </td>
             </tr>
-
-            <!-- CTA -->
             <tr>
               <td align="center" style="padding:0 32px 24px 32px;">
                 <table role="presentation" cellpadding="0" cellspacing="0">
                   <tr>
                     <td align="center" style="border-radius:16px; background-color:#0f62ed;">
-                      <a
-                        href="{{ .ConfirmationURL }}"
-                        target="_blank"
-                        style="display:inline-block; padding:14px 40px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:16px;"
-                      >
-                        אימות כתובת האימייל
-                      </a>
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block; padding:14px 40px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:16px;">אימות כתובת האימייל</a>
                     </td>
                   </tr>
                 </table>
               </td>
             </tr>
-
-            <!-- fallback link -->
             <tr>
-              <td style="padding:0 32px 32px 32px; text-align:right;">
-                <p style="margin:0; font-size:13px; line-height:1.6; color:#8a8d99;">
-                  אם הכפתור לא עובד, אפשר להעתיק ולהדביק את הקישור הבא לדפדפן:
-                </p>
-                <p dir="ltr" style="margin:6px 0 0 0; font-size:13px; line-height:1.6; word-break:break-all; text-align:left;">
-                  <a href="{{ .ConfirmationURL }}" style="color:#0f62ed;">{{ .ConfirmationURL }}</a>
-                </p>
+              <td dir="rtl" style="direction:rtl; padding:0 32px 32px 32px; text-align:right;">
+                <p style="margin:0; font-size:13px; line-height:1.6; color:#8a8d99;">אם הכפתור לא עובד, אפשר להעתיק ולהדביק את הקישור הבא לדפדפן:</p>
+                <p dir="ltr" style="direction:ltr; margin:6px 0 0 0; font-size:13px; line-height:1.6; word-break:break-all; text-align:left;"><a href="{{ .ConfirmationURL }}" style="color:#0f62ed;">{{ .ConfirmationURL }}</a></p>
               </td>
             </tr>
-
-            <!-- footer -->
             <tr>
-              <td style="padding:20px 32px; background-color:#f8f7fb; text-align:center;">
-                <p style="margin:0; font-size:12px; line-height:1.6; color:#8a8d99;">
-                  אם לא נרשמת ל-Clockly, אפשר להתעלם ממייל זה — לא תתבצע שום פעולה.
-                </p>
+              <td dir="rtl" style="direction:rtl; padding:20px 32px; background-color:#f8f7fb; text-align:center;">
+                <p style="margin:0; font-size:12px; line-height:1.6; color:#8a8d99;">אם לא נרשמת ל-Clockly, אפשר להתעלם ממייל זה — לא תתבצע שום פעולה.</p>
                 <p style="margin:8px 0 0 0; font-size:12px; color:#b5b7c0;">Clockly · שעון נוכחות ושכר</p>
               </td>
             </tr>
