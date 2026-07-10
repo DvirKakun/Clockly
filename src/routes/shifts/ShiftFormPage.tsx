@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Info, Moon, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,11 +11,7 @@ import { useCreateShift, useDeleteShift, useShift, useUpdateShift } from '@/hook
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
-
-function todayIso() {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
+import { todayIso } from '@/lib/date';
 
 interface BreakField {
   start_time: string;
@@ -41,6 +37,7 @@ const dayTypeLabels: Record<DayType, string> = {
 
 export function ShiftFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const isEdit = !!id;
 
@@ -51,8 +48,11 @@ export function ShiftFormPage() {
 
   const { data: existing } = useShift(id);
 
+  // Coming from the calendar view's "add shift" action for a selected day pre-fills that date.
+  const initialDate = (location.state as { date?: string } | null)?.date;
+
   const [workplaceId, setWorkplaceId] = useState('');
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(initialDate ?? todayIso());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>('auto');
