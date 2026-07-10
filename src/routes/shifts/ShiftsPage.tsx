@@ -10,24 +10,16 @@ import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { isStatutoryHolidayDate } from '@/lib/calc';
 import { formatCurrency } from '@/lib/format';
 import { getMonthGridDays } from '@/lib/calendarGrid';
-import { todayIso } from '@/lib/date';
-
-const monthNames = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
-const weekdayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-const weekdayShort = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+import {
+  todayIso,
+  monthRange,
+  MONTH_NAMES_HE as monthNames,
+  WEEKDAY_NAMES_HE as weekdayNames,
+  WEEKDAY_SHORT_HE as weekdayShort,
+} from '@/lib/date';
 
 type ViewMode = 'calendar' | 'list';
 const VIEW_STORAGE_KEY = 'clockly-shifts-view';
-
-function monthRange(year: number, month: number) {
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: iso(start), end: iso(end) };
-}
 
 export function ShiftsPage() {
   const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Clock, LogIn, LogOut, Shield } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Clock, LogIn, LogOut, Shield, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
@@ -10,18 +10,7 @@ import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { formatCurrency } from '@/lib/format';
-
-const monthNames = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
-
-function monthRange(year: number, month: number) {
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: iso(start), end: iso(end) };
-}
+import { MONTH_NAMES_HE as monthNames, monthRange } from '@/lib/date';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -138,6 +127,16 @@ export function DashboardPage() {
                 <div className="flex items-center gap-2.5">
                   <Shield size={18} className="text-brand-500" />
                   <span className="text-sm font-semibold">זכויות עובד</span>
+                </div>
+                <ChevronRight size={16} className="rotate-180 text-black/30 dark:text-white/30" />
+              </Card>
+            </button>
+
+            <button onClick={() => navigate('/reports')} className="text-start">
+              <Card className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <FileText size={18} className="text-brand-500" />
+                  <span className="text-sm font-semibold">דוחות וייצוא</span>
                 </div>
                 <ChevronRight size={16} className="rotate-180 text-black/30 dark:text-white/30" />
               </Card>

@@ -83,3 +83,19 @@ button,
 [role='button'] {
   touch-action: manipulation;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-report,
+  .print-report * {
+    visibility: visible;
+  }
+  .print-report {
+    position: absolute;
+    inset: 0;
+    color: #16171d;
+    background: #fff;
+  }
+}

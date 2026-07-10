@@ -22,6 +22,7 @@ const ShiftFormPage = lazy(() => import('@/routes/shifts/ShiftFormPage').then((m
 const WorkplacesPage = lazy(() => import('@/routes/workplaces/WorkplacesPage').then((m) => ({ default: m.WorkplacesPage })));
 const SettingsPage = lazy(() => import('@/routes/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const RightsPage = lazy(() => import('@/routes/rights/RightsPage').then((m) => ({ default: m.RightsPage })));
+const ReportsPage = lazy(() => import('@/routes/reports/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const session = useAuthStore((s) => s.session);
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/shifts/:id/edit" element={<ShiftFormPage />} />
           <Route path="/workplaces" element={<WorkplacesPage />} />
           <Route path="/rights" element={<RightsPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

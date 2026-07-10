@@ -13,6 +13,7 @@ import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartially
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
 import { todayIso, weeklyOccurrences } from '@/lib/date';
+import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 
 interface BreakField {
   start_time: string;
@@ -33,11 +34,7 @@ function detectDayType(date: string, startTime: string, endTime: string, crosses
   return 'regular';
 }
 
-const dayTypeLabels: Record<DayType, string> = {
-  regular: 'יום רגיל',
-  shabbat: 'שבת',
-  holiday: 'חג',
-};
+const dayTypeLabels = DAY_TYPE_LABELS_HE;
 
 export function ShiftFormPage() {
   const navigate = useNavigate();
