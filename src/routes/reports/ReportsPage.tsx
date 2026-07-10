@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/format';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 import { MONTH_NAMES_HE } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
+import { PayslipCompareCard } from './PayslipCompareCard';
 
 export function ReportsPage() {
   const now = new Date();
@@ -118,6 +119,7 @@ export function ReportsPage() {
             <p className="text-sm text-black/50 dark:text-white/50">אין נתונים לחודש זה</p>
           </Card>
         ) : (
+          <>
           <div className="print-report flex flex-col gap-4">
             <h2 className="hidden text-xl font-bold print:block">דוח משכורת — {monthLabel}</h2>
 
@@ -189,6 +191,9 @@ export function ReportsPage() {
               </Card>
             ))}
           </div>
+          {/* Outside .print-report so it stays on screen only, not in the exported PDF. */}
+          <PayslipCompareCard summary={summary} year={cursor.year} month={cursor.month + 1} />
+          </>
         )}
       </div>
     </PageTransition>
