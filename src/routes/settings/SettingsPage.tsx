@@ -3,6 +3,7 @@ import { LogOut, Moon, Sun, SunMoon } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useTaxProfile, useUpdateTaxProfile } from '@/hooks/useTaxProfile';
@@ -20,6 +21,7 @@ export function SettingsPage() {
   const [fullName, setFullName] = useState('');
   const [additionalPoints, setAdditionalPoints] = useState('0');
   const [carValue, setCarValue] = useState('0');
+  const [payPeriodStartDay, setPayPeriodStartDay] = useState('1');
 
   useEffect(() => {
     if (profile) {
@@ -31,6 +33,7 @@ export function SettingsPage() {
     if (taxProfile) {
       setAdditionalPoints(String(taxProfile.additional_credit_points));
       setCarValue(String(taxProfile.car_value_addition));
+      setPayPeriodStartDay(String(taxProfile.pay_period_start_day));
     }
   }, [taxProfile]);
 
@@ -102,6 +105,31 @@ export function SettingsPage() {
             </>
           )}
         </Card>
+
+        {taxProfile && (
+          <Card className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">תקופת שכר</h2>
+            <Select
+              label="יום תחילת תקופת השכר"
+              value={payPeriodStartDay}
+              onChange={(e) => {
+                setPayPeriodStartDay(e.target.value);
+                updateTaxProfile.mutate({ pay_period_start_day: Number(e.target.value) });
+              }}
+            >
+              <option value="1">1 — חודש קלנדרי (ברירת מחדל)</option>
+              {[5, 10, 15, 16, 20, 21, 25, 26].map((d) => (
+                <option key={d} value={d}>
+                  {d} לחודש
+                </option>
+              ))}
+            </Select>
+            <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+              אם המשכורת שלך מחושבת מאמצע חודש לאמצע חודש (למשל מ-25 עד 24), בחר/י את היום שבו
+              מתחילה תקופת השכר. הסיכומים בבית ובדוחות יחושבו לפי תקופה זו.
+            </p>
+          </Card>
+        )}
 
         <Card className="flex flex-col gap-2">
           <h2 className="mb-1 text-sm font-semibold text-black/60 dark:text-white/60">תצוגה</h2>

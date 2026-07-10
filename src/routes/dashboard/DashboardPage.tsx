@@ -10,27 +10,39 @@ import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { formatCurrency } from '@/lib/format';
-import { MONTH_NAMES_HE as monthNames, monthRange } from '@/lib/date';
+import { MONTH_NAMES_HE as monthNames } from '@/lib/date';
+import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
-  const { start, end } = monthRange(cursor.year, cursor.month);
 
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
-  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(start, end);
   const { data: taxProfile } = useTaxProfile();
   const { data: openShift } = useOpenShift();
   const clockIn = useClockIn();
   const clockOut = useClockOut();
+
+  // The pay-period start day lives on the tax profile, so don't fetch shifts (which would use a
+  // calendar-month fallback range) until it's loaded — otherwise a custom-period user would see
+  // the wrong window's totals for a frame. Gate the query on the tax profile being present.
+  const startDay = taxProfile?.pay_period_start_day ?? 1;
+  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(
+    period.start,
+    period.end,
+    !!taxProfile
+  );
 
   const summary = useMemo(() => {
     if (!taxProfile || workplaces.length === 0) return null;
     return computeMonthSummary(workplaces, shifts, taxProfile);
   }, [workplaces, shifts, taxProfile]);
 
-  const isLoading = loadingWorkplaces || loadingShifts;
+  // `!taxProfile` keeps the loading state up while the tax profile (and thus the correct
+  // pay-period range) resolves, instead of briefly falling through to the empty/summary branch.
+  const isLoading = loadingWorkplaces || loadingShifts || !taxProfile;
 
   return (
     <PageTransition>
@@ -43,9 +55,16 @@ export function DashboardPage() {
           >
             <ChevronRight size={18} />
           </button>
-          <h1 className="text-lg font-bold">
-            {monthNames[cursor.month]} {cursor.year}
-          </h1>
+          <div className="text-center">
+            <h1 className="text-lg font-bold">
+              {monthNames[cursor.month]} {cursor.year}
+            </h1>
+            {startDay !== 1 && (
+              <p className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+                {payPeriodRangeLabel(period)}
+              </p>
+            )}
+          </div>
           <button
             onClick={() => setCursor((c) => (c.month === 11 ? { year: c.year + 1, month: 0 } : { ...c, month: c.month + 1 }))}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"

@@ -9,19 +9,29 @@ import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { formatCurrency } from '@/lib/format';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
-import { MONTH_NAMES_HE, monthRange } from '@/lib/date';
+import { MONTH_NAMES_HE } from '@/lib/date';
+import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 
 export function ReportsPage() {
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const { start, end } = monthRange(cursor.year, cursor.month);
-  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
 
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
-  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(start, end);
   const { data: taxProfile } = useTaxProfile();
+
+  // Falls back to a calendar month (start day 1) until the tax profile loads.
+  const startDay = taxProfile?.pay_period_start_day ?? 1;
+  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  const monthLabel =
+    startDay === 1
+      ? `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`
+      : `${MONTH_NAMES_HE[cursor.month]} ${cursor.year} (${payPeriodRangeLabel(period)})`;
+
+  // Gate the fetch on the tax profile (which holds the pay-period start day) so a custom-period
+  // user never sees a calendar-month window's report for a frame.
+  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
   const summary = useMemo(() => {
     if (!taxProfile || workplaces.length === 0) return null;
