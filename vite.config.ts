@@ -12,7 +12,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-16.png', 'favicon-32.png', 'logo.png', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',
         name: 'Clockly - שעון נוכחות ושכר',
