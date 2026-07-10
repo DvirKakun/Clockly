@@ -76,6 +76,24 @@ export function useOpenShift() {
   });
 }
 
+async function insertShift(values: ShiftFormValues, userId: string): Promise<ShiftRow> {
+  const { breaks, ...shift } = values;
+  const { data: shiftRow, error } = await supabase
+    .from('shifts')
+    .insert({ ...shift, user_id: userId })
+    .select()
+    .single();
+  if (error) throw error;
+
+  if (breaks.length > 0) {
+    const { error: breaksError } = await supabase
+      .from('breaks')
+      .insert(breaks.map((b) => ({ ...b, shift_id: shiftRow.id })));
+    if (breaksError) throw breaksError;
+  }
+  return shiftRow as ShiftRow;
+}
+
 export function useCreateShift() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id);
@@ -83,21 +101,37 @@ export function useCreateShift() {
   return useMutation({
     mutationFn: async (values: ShiftFormValues) => {
       if (!userId) throw new Error('Not authenticated');
-      const { breaks, ...shift } = values;
-      const { data: shiftRow, error } = await supabase
-        .from('shifts')
-        .insert({ ...shift, user_id: userId })
-        .select()
-        .single();
-      if (error) throw error;
+      return insertShift(values, userId);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shifts'] }),
+  });
+}
 
-      if (breaks.length > 0) {
-        const { error: breaksError } = await supabase
-          .from('breaks')
-          .insert(breaks.map((b) => ({ ...b, shift_id: shiftRow.id })));
-        if (breaksError) throw breaksError;
+// Sequential inserts (not a single multi-row insert) because Postgres doesn't guarantee
+// returned row order matches insertion order without an explicit ORDER BY, and each shift's
+// breaks must be attached to the correct returned shift id.
+export function useCreateShifts() {
+  const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
+
+  return useMutation({
+    mutationFn: async (valuesList: ShiftFormValues[]) => {
+      if (!userId) throw new Error('Not authenticated');
+      const created: ShiftRow[] = [];
+      try {
+        for (const values of valuesList) {
+          created.push(await insertShift(values, userId));
+        }
+      } catch (err) {
+        // Each insert is its own statement, so a failure partway through a recurring batch
+        // otherwise leaves earlier weeks committed — clean those up so the whole action is
+        // atomic from the user's point of view (breaks cascade-delete with their shift).
+        if (created.length > 0) {
+          await supabase.from('shifts').delete().in('id', created.map((s) => s.id));
+        }
+        throw err;
       }
-      return shiftRow as ShiftRow;
+      return created;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shifts'] }),
   });

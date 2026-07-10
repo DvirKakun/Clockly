@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
-import { useCreateShift, useDeleteShift, useShift, useUpdateShift } from '@/hooks/useShifts';
+import { useCreateShift, useCreateShifts, useDeleteShift, useShift, useUpdateShift, type ShiftFormValues } from '@/hooks/useShifts';
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
-import { todayIso } from '@/lib/date';
+import { todayIso, weeklyOccurrences } from '@/lib/date';
 
 interface BreakField {
   start_time: string;
@@ -21,6 +21,9 @@ interface BreakField {
 
 type DayType = 'regular' | 'shabbat' | 'holiday';
 type DayTypeChoice = 'auto' | DayType;
+type Repeat = 'none' | 'weekly';
+
+const MAX_RECURRING_OCCURRENCES = 52;
 
 function detectDayType(date: string, startTime: string, endTime: string, crossesMidnight: boolean): DayType {
   const holiday = statutoryHolidayName(date);
@@ -43,6 +46,7 @@ export function ShiftFormPage() {
 
   const { data: workplaces = [] } = useWorkplaces();
   const createShift = useCreateShift();
+  const createShifts = useCreateShifts();
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
 
@@ -62,6 +66,8 @@ export function ShiftFormPage() {
   const [meal, setMeal] = useState('0');
   const [notes, setNotes] = useState('');
   const [breaks, setBreaks] = useState<BreakField[]>([]);
+  const [repeat, setRepeat] = useState<Repeat>('none');
+  const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Crossing midnight is a pure function of the two time fields — never a manual choice.
@@ -78,6 +84,12 @@ export function ShiftFormPage() {
   );
 
   const selectedWorkplace = workplaces.find((w) => w.id === workplaceId);
+
+  const occurrenceDates = useMemo(
+    () => (repeat === 'weekly' && repeatUntil ? weeklyOccurrences(date, repeatUntil, MAX_RECURRING_OCCURRENCES) : []),
+    [repeat, repeatUntil, date]
+  );
+  const tooManyOccurrences = occurrenceDates.length > MAX_RECURRING_OCCURRENCES;
 
   // When the shift straddles the Shabbat boundary and dayType is left on 'auto', the calc
   // engine splits it into a regular segment and a Shabbat segment automatically (see
@@ -144,13 +156,12 @@ export function ShiftFormPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const values = {
+
+    const baseValues = {
       workplace_id: workplaceId,
-      date,
       start_time: startTime,
       end_time: endTime,
       crosses_midnight: crossesMidnight,
-      day_type: dayType,
       bonuses: Number(bonuses) || 0,
       tips: Number(tips) || 0,
       travel_reimbursement: Number(travel) || 0,
@@ -162,9 +173,26 @@ export function ShiftFormPage() {
 
     try {
       if (isEdit && id) {
-        await updateShift.mutateAsync({ id, ...values });
+        await updateShift.mutateAsync({ id, ...baseValues, date, day_type: dayType });
+      } else if (repeat === 'weekly' && repeatUntil) {
+        if (repeatUntil <= date) {
+          setError('תאריך הסיום של החזרה צריך להיות אחרי תאריך המשמרת');
+          return;
+        }
+        if (tooManyOccurrences) {
+          setError(`חזרה שבועית מוגבלת ל-${MAX_RECURRING_OCCURRENCES} משמרות — קצרו את טווח התאריכים`);
+          return;
+        }
+        // Only the first occurrence keeps a manual day-type override; every later week gets its
+        // own date, so its Shabbat/holiday status is re-detected rather than copying week one's.
+        const valuesList: ShiftFormValues[] = occurrenceDates.map((occDate) => ({
+          ...baseValues,
+          date: occDate,
+          day_type: occDate === date ? dayType : detectDayType(occDate, startTime, endTime, crossesMidnight),
+        }));
+        await createShifts.mutateAsync(valuesList);
       } else {
-        await createShift.mutateAsync(values);
+        await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
       }
       navigate('/shifts');
     } catch (err) {
@@ -308,6 +336,38 @@ export function ShiftFormPage() {
             )}
           </Card>
 
+          {!isEdit && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold">חזרה על משמרת</h2>
+              <Select label="תדירות" value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
+                <option value="none">חד פעמית</option>
+                <option value="weekly">כל שבוע, באותו יום</option>
+              </Select>
+              {repeat === 'weekly' && (
+                <>
+                  <Input
+                    label="חזרה עד תאריך"
+                    type="date"
+                    dir="ltr"
+                    min={date}
+                    value={repeatUntil}
+                    onChange={(e) => setRepeatUntil(e.target.value)}
+                    required
+                  />
+                  {repeatUntil && (
+                    <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                      {tooManyOccurrences
+                        ? `הטווח שנבחר יוצר יותר מ-${MAX_RECURRING_OCCURRENCES} משמרות — קצרו את התאריך`
+                        : repeatUntil <= date
+                          ? 'תאריך הסיום צריך להיות אחרי תאריך המשמרת'
+                          : `ייווצרו ${occurrenceDates.length} משמרות, כולל התאריך שנבחר למעלה. סוג היום (רגיל/שבת/חג) יזוהה בנפרד לכל תאריך.`}
+                    </p>
+                  )}
+                </>
+              )}
+            </Card>
+          )}
+
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">הפסקות</h2>
@@ -366,7 +426,17 @@ export function ShiftFormPage() {
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <Button type="submit" fullWidth disabled={!workplaceId || createShift.isPending || updateShift.isPending}>
+          <Button
+            type="submit"
+            fullWidth
+            disabled={
+              !workplaceId ||
+              createShift.isPending ||
+              createShifts.isPending ||
+              updateShift.isPending ||
+              (repeat === 'weekly' && !!repeatUntil && (repeatUntil <= date || tooManyOccurrences))
+            }
+          >
             שמירה
           </Button>
           {isEdit && (
