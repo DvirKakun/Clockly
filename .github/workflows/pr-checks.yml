@@ -21,13 +21,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck (strict mode gate — see code-review skill)
+      - name: Typecheck (strict mode gate — see clockly-code-review skill)
         run: npx tsc -b
 
-      - name: Lint (oxlint — see code-review skill)
+      - name: Lint (oxlint — see clockly-code-review skill)
         run: npx oxlint
 
-      - name: Unit tests (calc engine edge cases — see code-review skill)
+      - name: Unit tests (calc engine edge cases — see clockly-code-review skill)
         run: npx vitest run
 
       - name: Production build (bundle size + code-splitting — see performance-review skill)

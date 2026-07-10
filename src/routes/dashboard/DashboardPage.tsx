@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Clock, LogIn, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ChevronLeft, Clock, LogIn, LogOut, Shield } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
@@ -8,8 +9,7 @@ import { useShiftsForRange, useClockIn, useClockOut, useOpenShift } from '@/hook
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
-
-const formatCurrency = (n: number) => `₪${n.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
+import { formatCurrency } from '@/lib/format';
 
 const monthNames = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -24,6 +24,7 @@ function monthRange(year: number, month: number) {
 }
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const { start, end } = monthRange(cursor.year, cursor.month);
@@ -131,6 +132,16 @@ export function DashboardPage() {
                 </Card>
               ))}
             </div>
+
+            <button onClick={() => navigate('/rights')} className="text-start">
+              <Card className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Shield size={18} className="text-brand-500" />
+                  <span className="text-sm font-semibold">זכויות עובד</span>
+                </div>
+                <ChevronRight size={16} className="rotate-180 text-black/30 dark:text-white/30" />
+              </Card>
+            </button>
           </>
         ) : null}
       </div>

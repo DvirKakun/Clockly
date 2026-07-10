@@ -1,6 +1,6 @@
 ---
-name: security-review
-description: Run before opening or updating any PR that touches Supabase schema/migrations, auth, src/hooks (data access), or anything handling salary/tax data. Verifies multi-tenant isolation and data handling.
+name: clockly-security-review
+description: Run before opening or updating any PR that touches Supabase schema/migrations, auth, src/hooks (data access), or anything handling salary/tax data. Verifies multi-tenant isolation and data handling. Named clockly-security-review (not security-review) to avoid shadowing Claude Code's built-in security-review skill.
 ---
 
 # Security & Isolation Review Skill

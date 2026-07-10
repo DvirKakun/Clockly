@@ -46,21 +46,18 @@ export type Database = {
           created_at: string;
           full_name: string | null;
           id: string;
-          seniority_start_date: string | null;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
           full_name?: string | null;
           id: string;
-          seniority_start_date?: string | null;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
           full_name?: string | null;
           id?: string;
-          seniority_start_date?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -187,6 +184,7 @@ export type Database = {
           monthly_salary: number | null;
           name: string;
           standard_weekly_hours: number;
+          start_date: string | null;
           updated_at: string;
           user_id: string;
           work_days_per_week: number;
@@ -202,6 +200,7 @@ export type Database = {
           monthly_salary?: number | null;
           name: string;
           standard_weekly_hours?: number;
+          start_date?: string | null;
           updated_at?: string;
           user_id: string;
           work_days_per_week?: number;
@@ -217,6 +216,7 @@ export type Database = {
           monthly_salary?: number | null;
           name?: string;
           standard_weekly_hours?: number;
+          start_date?: string | null;
           updated_at?: string;
           user_id?: string;
           work_days_per_week?: number;

@@ -18,14 +18,12 @@ export function SettingsPage() {
   const { mode, setMode } = useThemeStore();
 
   const [fullName, setFullName] = useState('');
-  const [seniorityDate, setSeniorityDate] = useState('');
   const [additionalPoints, setAdditionalPoints] = useState('0');
   const [carValue, setCarValue] = useState('0');
 
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name ?? '');
-      setSeniorityDate(profile.seniority_start_date ?? '');
     }
   }, [profile]);
 
@@ -50,15 +48,6 @@ export function SettingsPage() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             onBlur={() => updateProfile.mutate({ full_name: fullName })}
-          />
-          <Input
-            label="תאריך תחילת עבודה (לוותק)"
-            type="date"
-            value={seniorityDate}
-            onChange={(e) => {
-              setSeniorityDate(e.target.value);
-              updateProfile.mutate({ seniority_start_date: e.target.value || null });
-            }}
           />
         </Card>
 

@@ -7,6 +7,7 @@ import { useShiftsForRange, type ShiftWithBreaks } from '@/hooks/useShifts';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
 import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
+import { formatCurrency } from '@/lib/format';
 
 const monthNames = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -20,8 +21,6 @@ function monthRange(year: number, month: number) {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { start: iso(start), end: iso(end) };
 }
-
-const formatCurrency = (n: number) => `₪${n.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
 
 export function ShiftsPage() {
   const navigate = useNavigate();

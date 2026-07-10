@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Trash2, Briefcase } from 'lucide-react';
+import { Plus, Trash2, Briefcase, X, ChevronLeft } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,6 +9,7 @@ import { PageTransition } from '@/components/layout/PageTransition';
 import {
   useArchiveWorkplace,
   useCreateWorkplace,
+  useUpdateWorkplace,
   useWorkplaces,
   type Workplace,
 } from '@/hooks/useWorkplaces';
@@ -23,6 +24,7 @@ type FormState = {
   daily_rate: string;
   monthly_salary: string;
   work_days_per_week: '5' | '6';
+  start_date: string;
 };
 
 const emptyForm: FormState = {
@@ -33,18 +35,57 @@ const emptyForm: FormState = {
   daily_rate: '',
   monthly_salary: '',
   work_days_per_week: '5',
+  start_date: '',
 };
+
+function workplaceToForm(w: Workplace): FormState {
+  return {
+    name: w.name,
+    color: w.color,
+    employment_type: w.employment_type as FormState['employment_type'],
+    hourly_rate: w.hourly_rate != null ? String(w.hourly_rate) : '',
+    daily_rate: w.daily_rate != null ? String(w.daily_rate) : '',
+    monthly_salary: w.monthly_salary != null ? String(w.monthly_salary) : '',
+    work_days_per_week: String(w.work_days_per_week) as '5' | '6',
+    start_date: w.start_date ?? '',
+  };
+}
 
 export function WorkplacesPage() {
   const { data: workplaces = [], isLoading } = useWorkplaces();
   const createWorkplace = useCreateWorkplace();
+  const updateWorkplace = useUpdateWorkplace();
   const archiveWorkplace = useArchiveWorkplace();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [error, setError] = useState<string | null>(null);
+
+  function openCreateForm() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+    setShowForm(true);
+  }
+
+  function openEditForm(workplace: Workplace) {
+    setEditingId(workplace.id);
+    setForm(workplaceToForm(workplace));
+    setError(null);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await createWorkplace.mutateAsync({
+    setError(null);
+    const values = {
       name: form.name,
       color: form.color,
       employment_type: form.employment_type,
@@ -53,18 +94,31 @@ export function WorkplacesPage() {
       monthly_salary: form.employment_type === 'monthly' ? Number(form.monthly_salary) : null,
       standard_weekly_hours: 42,
       work_days_per_week: Number(form.work_days_per_week),
-    });
-    setForm(emptyForm);
-    setShowForm(false);
+      start_date: form.start_date || null,
+    };
+
+    try {
+      if (editingId) {
+        await updateWorkplace.mutateAsync({ id: editingId, ...values });
+      } else {
+        await createWorkplace.mutateAsync(values);
+      }
+      closeForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
+    }
   }
+
+  const saving = createWorkplace.isPending || updateWorkplace.isPending;
 
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between pt-1">
           <h1 className="text-lg font-bold">מקומות עבודה</h1>
-          <Button onClick={() => setShowForm((v) => !v)}>
-            <Plus size={18} /> חדש
+          <Button onClick={() => (showForm ? closeForm() : openCreateForm())}>
+            {showForm ? <X size={18} /> : <Plus size={18} />}
+            {showForm ? 'ביטול' : 'חדש'}
           </Button>
         </header>
 
@@ -150,8 +204,21 @@ export function WorkplacesPage() {
                     <option value="6">6 ימים</option>
                   </Select>
 
-                  <Button type="submit" fullWidth disabled={createWorkplace.isPending}>
-                    שמירה
+                  <Input
+                    label="תאריך תחילת עבודה"
+                    type="date"
+                    dir="ltr"
+                    value={form.start_date}
+                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                  />
+                  <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                    קובע ותק לצורך חישוב זכויות (חופשה, מחלה, הבראה) במקום העבודה הזה.
+                  </p>
+
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+
+                  <Button type="submit" fullWidth disabled={saving}>
+                    {editingId ? 'עדכון' : 'שמירה'}
                   </Button>
                 </form>
               </Card>
@@ -169,7 +236,12 @@ export function WorkplacesPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {workplaces.map((w) => (
-              <WorkplaceCard key={w.id} workplace={w} onArchive={() => archiveWorkplace.mutate(w.id)} />
+              <WorkplaceCard
+                key={w.id}
+                workplace={w}
+                onEdit={() => openEditForm(w)}
+                onArchive={() => archiveWorkplace.mutate(w.id)}
+              />
             ))}
           </div>
         )}
@@ -178,7 +250,15 @@ export function WorkplacesPage() {
   );
 }
 
-function WorkplaceCard({ workplace, onArchive }: { workplace: Workplace; onArchive: () => void }) {
+function WorkplaceCard({
+  workplace,
+  onEdit,
+  onArchive,
+}: {
+  workplace: Workplace;
+  onEdit: () => void;
+  onArchive: () => void;
+}) {
   const rateLabel =
     workplace.employment_type === 'hourly'
       ? `₪${workplace.hourly_rate}/שעה`
@@ -189,15 +269,19 @@ function WorkplaceCard({ workplace, onArchive }: { workplace: Workplace; onArchi
   return (
     <Card>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <button onClick={onEdit} className="flex flex-1 items-center gap-3 text-start">
           <span className="h-4 w-4 rounded-full" style={{ backgroundColor: workplace.color }} />
           <div>
             <p className="font-medium">{workplace.name}</p>
             <p className="text-xs text-black/50 dark:text-white/50">{rateLabel}</p>
           </div>
-        </div>
+          <ChevronLeft size={16} className="ms-auto text-black/20 dark:text-white/20" />
+        </button>
         <button
-          onClick={onArchive}
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive();
+          }}
           className="flex h-9 w-9 items-center justify-center rounded-full text-black/30 active:bg-red-500/10 active:text-red-500 dark:text-white/30"
           aria-label="הסרה"
         >
