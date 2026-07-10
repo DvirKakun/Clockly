@@ -161,10 +161,16 @@ export function ReportsPage() {
                       .sort((a, b) => a.date.localeCompare(b.date))
                       .map(({ shift, date, dayType }) => (
                         <tr key={shift.shiftId} className="border-t border-black/5 dark:border-white/10">
-                          <td className="py-1.5" dir="ltr">
-                            {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+                          {/* dir="ltr" on the number only — putting it on the <td> would also flip
+                              the cell's alignment to the left, colliding the date into the next column. */}
+                          <td className="py-1.5 text-start">
+                            <span dir="ltr">
+                              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+                            </span>
                           </td>
-                          <td className="py-1.5">{dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}</td>
+                          <td className="py-1.5 text-start">
+                            {dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}
+                          </td>
                           <td className="py-1.5">{shift.hours.payableHours.toFixed(1)}</td>
                           <td className="py-1.5 font-medium">{formatCurrency(shift.totalGross)}</td>
                         </tr>
