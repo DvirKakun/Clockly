@@ -48,7 +48,7 @@ export function useUpdateWorkplace() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: WorkplaceUpdate & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: Omit<WorkplaceUpdate, 'user_id'> & { id: string }) => {
       const { data, error } = await supabase.from('workplaces').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data as Workplace;

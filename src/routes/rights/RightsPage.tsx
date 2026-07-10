@@ -13,8 +13,7 @@ import {
   sickLeaveAccrual,
   DEFAULT_RATES,
 } from '@/lib/calc';
-
-const formatCurrency = (n: number) => `₪${n.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
+import { formatCurrency } from '@/lib/format';
 
 function formatSeniority(months: number): string {
   const years = Math.floor(months / 12);

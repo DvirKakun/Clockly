@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Trash2, Briefcase, X } from 'lucide-react';
+import { Plus, Trash2, Briefcase, X, ChevronLeft } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -59,16 +59,19 @@ export function WorkplacesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [error, setError] = useState<string | null>(null);
 
   function openCreateForm() {
     setEditingId(null);
     setForm(emptyForm);
+    setError(null);
     setShowForm(true);
   }
 
   function openEditForm(workplace: Workplace) {
     setEditingId(workplace.id);
     setForm(workplaceToForm(workplace));
+    setError(null);
     setShowForm(true);
   }
 
@@ -76,10 +79,12 @@ export function WorkplacesPage() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+    setError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     const values = {
       name: form.name,
       color: form.color,
@@ -92,12 +97,16 @@ export function WorkplacesPage() {
       start_date: form.start_date || null,
     };
 
-    if (editingId) {
-      await updateWorkplace.mutateAsync({ id: editingId, ...values });
-    } else {
-      await createWorkplace.mutateAsync(values);
+    try {
+      if (editingId) {
+        await updateWorkplace.mutateAsync({ id: editingId, ...values });
+      } else {
+        await createWorkplace.mutateAsync(values);
+      }
+      closeForm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
     }
-    closeForm();
   }
 
   const saving = createWorkplace.isPending || updateWorkplace.isPending;
@@ -205,6 +214,8 @@ export function WorkplacesPage() {
                     קובע ותק לצורך חישוב זכויות (חופשה, מחלה, הבראה) במקום העבודה הזה.
                   </p>
 
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+
                   <Button type="submit" fullWidth disabled={saving}>
                     {editingId ? 'עדכון' : 'שמירה'}
                   </Button>
@@ -263,6 +274,7 @@ function WorkplaceCard({
             <p className="font-medium">{workplace.name}</p>
             <p className="text-xs text-black/50 dark:text-white/50">{rateLabel}</p>
           </div>
+          <ChevronLeft size={16} className="ms-auto text-black/20 dark:text-white/20" />
         </button>
         <button
           onClick={(e) => {

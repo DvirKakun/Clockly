@@ -9,8 +9,7 @@ import { useShiftsForRange, useClockIn, useClockOut, useOpenShift } from '@/hook
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
-
-const formatCurrency = (n: number) => `₪${n.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
+import { formatCurrency } from '@/lib/format';
 
 const monthNames = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',

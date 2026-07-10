@@ -1,6 +1,6 @@
 ---
-name: code-review
-description: Run before opening or updating any PR that touches src/. Reviews code quality, architecture, type-safety, error handling, and calc-engine edge cases against Clockly's conventions.
+name: clockly-code-review
+description: Run before opening or updating any PR that touches src/. Reviews code quality, architecture, type-safety, error handling, and calc-engine edge cases against Clockly's conventions. Named clockly-code-review (not code-review) to avoid shadowing Claude Code's built-in code-review skill.
 ---
 
 # Code Review Skill
