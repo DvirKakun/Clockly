@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import {
   useArchiveWorkplace,
@@ -69,6 +70,7 @@ export function WorkplacesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Workplace | null>(null);
 
   function openCreateForm() {
     setEditingId(null);
@@ -290,11 +292,27 @@ export function WorkplacesPage() {
                 key={w.id}
                 workplace={w}
                 onEdit={() => openEditForm(w)}
-                onArchive={() => archiveWorkplace.mutate(w.id)}
+                onArchive={() => setArchiveTarget(w)}
               />
             ))}
           </div>
         )}
+
+        <ConfirmDialog
+          open={!!archiveTarget}
+          title="הסרת מקום עבודה"
+          message={
+            archiveTarget
+              ? `להסיר את "${archiveTarget.name}"? המשמרות הקיימות שלו יישמרו, אך לא יהיה ניתן לבחור אותו למשמרות חדשות.`
+              : ''
+          }
+          confirmLabel="הסרה"
+          onConfirm={() => {
+            if (archiveTarget) archiveWorkplace.mutate(archiveTarget.id);
+            setArchiveTarget(null);
+          }}
+          onCancel={() => setArchiveTarget(null)}
+        />
       </div>
     </PageTransition>
   );
