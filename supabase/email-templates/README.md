@@ -33,24 +33,40 @@ organization — every other recipient gets silently refused with "Email address
 That means **right now, anyone other than you signing up for real likely isn't receiving a
 confirmation email at all.** Custom SMTP fixes both the branding and this.
 
-You do **not** need to own a domain for this — Resend's free tier includes a ready-to-use
-sender (`onboarding@resend.dev`) that works immediately with zero domain setup, and still lets
-the display name say "Clockly":
+**Correction from an earlier version of this doc:** you *can* set this up with zero domain, but
+Resend's ready-to-use sender (`onboarding@resend.dev`) only delivers to **the email address you
+signed up to Resend with** — not to arbitrary recipients. This is Resend's own anti-abuse rule
+for the unverified/testing sender, not something Clockly or Supabase can bypass client-side; hit
+it live and confirmed via the Supabase Auth logs (`gomail: could not send email 1: 550 "You can
+only send testing emails to your own email address..."`). So this path is good for confirming
+the whole signup → branded-email → confirm flow works end-to-end using your own address, but
+**not** for real other users — for that you need a verified domain, no way around it (every
+transactional email provider enforces this, it's how they stop spammers from using their shared
+sending reputation).
 
-1. Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month, 100/day —
-   plenty for this app). No domain or credit card needed to start.
+### Testing-only (no domain, sends to yourself only)
+
+1. Sign up at [resend.com](https://resend.com) with the same email you want to test signup with
+   (free tier: 3,000 emails/month, 100/day). No domain or credit card needed.
 2. Dashboard → **API Keys** → create a key (or **SMTP** tab, which shows ready-made SMTP
    credentials for `smtp.resend.com`, port 587, username `resend`, password = your API key).
 3. Supabase Dashboard → **Authentication → Emails → SMTP Settings** → enable Custom SMTP:
    - Host: `smtp.resend.com`, Port: `587`
    - Username: `resend`, Password: the API key from step 2
-   - Sender email: `onboarding@resend.dev` (Resend's shared no-verification-needed address)
-   - Sender name: `Clockly` ← this is the field that makes inboxes show "Clockly <onboarding@resend.dev>"
-4. Save, then use the "Send test email" button on that same Supabase screen to confirm delivery
-   to an address outside your team before relying on it.
-5. If you later buy a domain, verify it in Resend (Domains → Add Domain → add the SPF/DKIM DNS
-   records they give you) and swap the sender email to `noreply@yourdomain.com` — the sender
-   name field stays "Clockly" either way, no other change needed.
+   - Sender email: `onboarding@resend.dev`
+   - Sender name: `Clockly` ← makes inboxes show "Clockly <onboarding@resend.dev>"
+4. Test signup using **only** the email address your Resend account is registered under. Any
+   other recipient gets refused with the 550 error above.
+
+### For real users (needed sooner or later — a domain is unavoidable here)
+
+1. Get a domain if you don't have one — doesn't need to be `clockly.app` specifically, any cheap
+   domain from Namecheap/Cloudflare/Google Domains works (often $1–15/year depending on the TLD).
+2. Resend Dashboard → **Domains** → Add Domain → add the SPF/DKIM DNS records they give you at
+   your domain registrar (usually live within minutes to a few hours).
+3. Back in Supabase's SMTP settings, change the sender email to something on that domain, e.g.
+   `noreply@yourdomain.com` — sender name stays `Clockly`, nothing else changes.
+4. Now `onboarding@resend.dev`'s restriction no longer applies — mail goes to any recipient.
 
 Resend also documents this exact integration directly: [resend.com/docs/send-with-supabase-smtp](https://resend.com/docs/send-with-supabase-smtp).
 
