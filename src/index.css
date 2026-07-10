@@ -1,0 +1,82 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Assistant', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand-50: #f5f0ff;
+  --color-brand-100: #ede0ff;
+  --color-brand-200: #d9c2ff;
+  --color-brand-300: #bd93ff;
+  --color-brand-400: #a15dff;
+  --color-brand-500: #8b2fff;
+  --color-brand-600: #7e14ff;
+  --color-brand-700: #6a0ce0;
+  --color-brand-800: #560cb3;
+  --color-brand-900: #470f8c;
+
+  --color-accent-cyan: #47bfff;
+}
+
+:root {
+  color-scheme: light dark;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html {
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  min-height: 100svh;
+  background: light-dark(#f8f7fb, #0f1016);
+  color: light-dark(#16171d, #f3f4f6);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+#root {
+  height: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+* {
+  -webkit-touch-callout: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+}
+
+button,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}

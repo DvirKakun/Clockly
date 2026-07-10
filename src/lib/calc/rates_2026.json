@@ -1,0 +1,123 @@
+{
+  "year": 2026,
+  "effectiveFrom": "2026-04-01",
+  "currency": "ILS",
+  "minimumWage": {
+    "hourly": 35.40,
+    "monthly": 6443.85,
+    "youth": {
+      "age16to17": 27.94,
+      "age17to18": 30.92
+    }
+  },
+  "standardHours": {
+    "weeklyHours": 42,
+    "dailyHoursFiveDayWeek": 8.6,
+    "dailyHoursSixDayWeek": 8,
+    "nightShiftDailyHours": 7,
+    "nightWindowStart": "22:00",
+    "nightWindowEnd": "06:00",
+    "nightWindowMinHoursToQualify": 2,
+    "monthlyDivisor": 182
+  },
+  "overtime": {
+    "firstTierHours": 2,
+    "firstTierRate": 1.25,
+    "secondTierRate": 1.5
+  },
+  "shabbatHoliday": {
+    "baseRate": 1.5,
+    "overtimeFirstTierHours": 2,
+    "overtimeFirstTierRate": 1.75,
+    "overtimeSecondTierRate": 2.0,
+    "holidayCompensationMaxRate": 2.5
+  },
+  "incomeTaxBracketsMonthly": [
+    { "upTo": 7010, "rate": 0.10 },
+    { "upTo": 10060, "rate": 0.14 },
+    { "upTo": 19000, "rate": 0.20 },
+    { "upTo": 25100, "rate": 0.31 },
+    { "upTo": 46690, "rate": 0.35 },
+    { "upTo": 60130, "rate": 0.47 },
+    { "upTo": null, "rate": 0.50 }
+  ],
+  "surtax": {
+    "monthlyThreshold": 60130,
+    "annualThreshold": 721560,
+    "rate": 0.03,
+    "note": "Included as the 50% top bracket above (47% + 3%); kept for transparency/annual reconciliation."
+  },
+  "taxCreditPoint": {
+    "monthlyValue": 242,
+    "residentPoints": 2.25,
+    "femalePoints": 0.5
+  },
+  "socialSecurity": {
+    "lowerThreshold": 7703,
+    "upperCeiling": 51910,
+    "employeeRateBelowThreshold": 0.0427,
+    "employeeRateAboveThreshold": 0.1217,
+    "breakdown": {
+      "belowThreshold": { "nationalInsurance": 0.0104, "healthTax": 0.0323 },
+      "aboveThreshold": { "nationalInsurance": 0.07, "healthTax": 0.0517 }
+    },
+    "employerRateBelowThreshold": 0.0355,
+    "employerRateAboveThreshold": 0.076
+  },
+  "pension": {
+    "totalRate": 0.185,
+    "employeeContributionRate": 0.06,
+    "employerContributionRate": 0.065,
+    "employerSeveranceRate": 0.06,
+    "employerSeveranceRateMax": 0.0833,
+    "eligibilityAgeMale": 21,
+    "eligibilityAgeFemale": 20,
+    "monthlyCeiling": 13769
+  },
+  "kerenHishtalmut": {
+    "employeeRate": 0.025,
+    "employerRate": 0.075,
+    "monthlyCeiling": 15712
+  },
+  "recoveryPay": {
+    "dailyRate": 418,
+    "pendingDailyRate": 451.5,
+    "daysBySeniority": [
+      { "minYears": 0, "maxYears": 1, "days": 5 },
+      { "minYears": 2, "maxYears": 3, "days": 6 },
+      { "minYears": 4, "maxYears": 10, "days": 7 },
+      { "minYears": 11, "maxYears": 15, "days": 8 },
+      { "minYears": 16, "maxYears": 19, "days": 9 },
+      { "minYears": 20, "maxYears": null, "days": 10 }
+    ]
+  },
+  "travel": {
+    "dailyCap": 22.60,
+    "minDistanceMeters": 500
+  },
+  "annualLeave": {
+    "fiveDayWeekDaysBySeniority": [
+      { "minYears": 1, "maxYears": 4, "days": 12 },
+      { "minYears": 5, "maxYears": 5, "days": 14 },
+      { "minYears": 6, "maxYears": 6, "days": 16 },
+      { "minYears": 7, "maxYears": 7, "days": 18 },
+      { "minYears": 8, "maxYears": null, "days": 19 }
+    ],
+    "maxDays": 23,
+    "minWorkDaysForEligibility": 75
+  },
+  "sickLeave": {
+    "accrualDaysPerMonth": 1.5,
+    "maxAnnualAccrual": 18,
+    "maxAccumulation": 90,
+    "paymentByDay": [
+      { "day": 1, "percent": 0 },
+      { "day": 2, "percent": 50 },
+      { "day": 3, "percent": 50 },
+      { "dayFrom": 4, "percent": 100 }
+    ]
+  },
+  "holidayPay": {
+    "minSeniorityMonths": 3
+  }
+}
