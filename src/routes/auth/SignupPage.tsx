@@ -59,7 +59,7 @@ export function SignupPage() {
 
   if (success) {
     return (
-      <AuthLayout title="נרשמת בהצלחה">
+      <AuthLayout compact title="נרשמת בהצלחה">
         <div className="rounded-2xl bg-brand-50 p-4 text-center text-sm text-brand-700 dark:bg-brand-500/10 dark:text-brand-200">
           נשלח מייל אימות לכתובת {email}. אשר/י אותו כדי להתחבר.
         </div>
@@ -71,32 +71,34 @@ export function SignupPage() {
   }
 
   return (
-    <AuthLayout title="יצירת חשבון">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <AuthLayout compact title="יצירת חשבון">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
         <Input label="שם מלא" required value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
 
-        <Input
-          label="אימייל"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          dir="ltr"
-        />
-        <Input
-          label="אימות אימייל"
-          type="email"
-          required
-          value={confirmEmail}
-          onChange={(e) => setConfirmEmail(e.target.value)}
-          onPaste={(e) => e.preventDefault()}
-          autoComplete="off"
-          dir="ltr"
-          error={touched && !emailsMatch ? 'כתובות האימייל אינן תואמות' : undefined}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="אימייל"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            dir="ltr"
+          />
+          <Input
+            label="אימות אימייל"
+            type="email"
+            required
+            value={confirmEmail}
+            onChange={(e) => setConfirmEmail(e.target.value)}
+            onPaste={(e) => e.preventDefault()}
+            autoComplete="off"
+            dir="ltr"
+            error={touched && !emailsMatch ? 'לא תואם' : undefined}
+          />
+        </div>
 
-        <div>
+        <div className="grid grid-cols-2 gap-3">
           <Input
             label="סיסמה"
             type="password"
@@ -106,19 +108,18 @@ export function SignupPage() {
             autoComplete="new-password"
             dir="ltr"
           />
-          <PasswordGuidelines password={password} />
+          <Input
+            label="אימות סיסמה"
+            type="password"
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+            dir="ltr"
+            error={touched && !passwordsMatch ? 'לא תואם' : undefined}
+          />
         </div>
-
-        <Input
-          label="אימות סיסמה"
-          type="password"
-          required
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          autoComplete="new-password"
-          dir="ltr"
-          error={touched && !passwordsMatch ? 'הסיסמאות אינן תואמות' : undefined}
-        />
+        <PasswordGuidelines password={password} />
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -127,7 +128,7 @@ export function SignupPage() {
         </Button>
       </form>
 
-      <div className="my-5 flex items-center gap-3">
+      <div className="my-3 flex items-center gap-3">
         <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
         <span className="text-xs text-black/40 dark:text-white/40">או</span>
         <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
@@ -138,7 +139,7 @@ export function SignupPage() {
       <button
         type="button"
         onClick={() => navigate('/login', { state: { direction: -1 } })}
-        className="mt-6 w-full text-center text-sm text-brand-500"
+        className="mt-4 w-full text-center text-sm text-brand-500"
       >
         כבר יש לך חשבון? התחברות
       </button>

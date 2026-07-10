@@ -6,6 +6,8 @@ import { Clock } from 'lucide-react';
 interface AuthLayoutProps {
   title?: string;
   subtitle?: string;
+  /** Compact header (small inline icon + wordmark, no subtitle) for content-heavy pages like signup. */
+  compact?: boolean;
   children: ReactNode;
 }
 
@@ -15,7 +17,7 @@ const slideVariants = {
   exit: (direction: number) => ({ x: direction > 0 ? -40 : 40, opacity: 0 }),
 };
 
-export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, compact, children }: AuthLayoutProps) {
   const location = useLocation();
   const direction = (location.state as { direction?: number } | null)?.direction ?? 0;
 
@@ -25,15 +27,24 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
       style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}
     >
       <div className="mx-auto w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white shadow-lg shadow-brand-500/30">
-            <Clock size={30} />
+        {compact ? (
+          <div className="mb-3 flex items-center justify-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white">
+              <Clock size={18} />
+            </div>
+            <h1 className="text-lg font-bold">Clockly</h1>
           </div>
-          <h1 className="text-2xl font-bold">Clockly</h1>
-          <p className="text-center text-sm text-black/50 dark:text-white/50">
-            {subtitle ?? 'מעקב שעות עבודה וחישוב שכר לפי דיני העבודה בישראל'}
-          </p>
-        </div>
+        ) : (
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-brand-500 to-accent-cyan text-white shadow-lg shadow-brand-500/30">
+              <Clock size={30} />
+            </div>
+            <h1 className="text-2xl font-bold">Clockly</h1>
+            <p className="text-center text-sm text-black/50 dark:text-white/50">
+              {subtitle ?? 'מעקב שעות עבודה וחישוב שכר לפי דיני העבודה בישראל'}
+            </p>
+          </div>
+        )}
 
         <AnimatePresence mode="wait" custom={direction} initial={false}>
           <motion.div
@@ -45,7 +56,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
             exit="exit"
             transition={{ type: 'spring', stiffness: 380, damping: 34, mass: 0.7 }}
           >
-            {title && <h2 className="mb-4 text-lg font-bold">{title}</h2>}
+            {title && <h2 className={compact ? 'mb-2 text-base font-bold' : 'mb-4 text-lg font-bold'}>{title}</h2>}
             {children}
           </motion.div>
         </AnimatePresence>
