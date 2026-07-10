@@ -36,6 +36,15 @@ function detectDayType(date: string, startTime: string, endTime: string, crosses
 
 const dayTypeLabels = DAY_TYPE_LABELS_HE;
 
+// Travel reimbursement is a legal entitlement by default (see the note on WorkplacesPage), so a
+// workplace with no travel_daily_cost configured (null) still defaults to the legal cap here —
+// not to 0. An explicit 0 means the user opted out (e.g. employer-provided transport).
+function travelDefaultFor(workplace: { travel_daily_cost: number | null }): number {
+  return workplace.travel_daily_cost != null
+    ? Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)
+    : DEFAULT_RATES.travel.dailyCap;
+}
+
 export function ShiftFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -135,9 +144,7 @@ export function ShiftFormPage() {
     } else if (workplaces.length > 0 && !workplaceId) {
       const workplace = workplaces[0];
       setWorkplaceId(workplace.id);
-      if (workplace.travel_daily_cost != null) {
-        setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
-      }
+      setTravel(String(travelDefaultFor(workplace)));
       if (workplace.meal_deduction_default != null) {
         setMeal(String(workplace.meal_deduction_default));
       }
@@ -153,8 +160,8 @@ export function ShiftFormPage() {
     setWorkplaceId(newWorkplaceId);
     if (isEdit) return; // don't override a saved shift's own recorded travel/meal values
     const workplace = workplaces.find((w) => w.id === newWorkplaceId);
-    if (workplace?.travel_daily_cost != null) {
-      setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
+    if (workplace) {
+      setTravel(String(travelDefaultFor(workplace)));
     }
     if (workplace?.meal_deduction_default != null) {
       setMeal(String(workplace.meal_deduction_default));

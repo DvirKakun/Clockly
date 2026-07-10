@@ -14,8 +14,11 @@ import {
   useWorkplaces,
   type Workplace,
 } from '@/hooks/useWorkplaces';
+import { DEFAULT_RATES } from '@/lib/calc';
 
 const COLORS = ['#0f62ed', '#19bfc2', '#ff6b6b', '#22c55e', '#f59e0b', '#ec4899'];
+
+type TravelMode = 'default' | 'custom' | 'none';
 
 type FormState = {
   name: string;
@@ -26,6 +29,7 @@ type FormState = {
   monthly_salary: string;
   work_days_per_week: '5' | '6';
   start_date: string;
+  travel_mode: TravelMode;
   travel_daily_cost: string;
   meal_deduction_default: string;
 };
@@ -42,6 +46,9 @@ const emptyForm: FormState = {
   // so it doesn't under-credit someone who turns out to work irregular/rotating days.
   work_days_per_week: '6',
   start_date: '',
+  // Travel reimbursement is a legal entitlement by default (see helper text below), not an
+  // opt-in perk — so a brand-new workplace defaults to "full legal cap", not "none".
+  travel_mode: 'default',
   travel_daily_cost: '',
   meal_deduction_default: '',
 };
@@ -56,7 +63,8 @@ function workplaceToForm(w: Workplace): FormState {
     monthly_salary: w.monthly_salary != null ? String(w.monthly_salary) : '',
     work_days_per_week: String(w.work_days_per_week) as '5' | '6',
     start_date: w.start_date ?? '',
-    travel_daily_cost: w.travel_daily_cost != null ? String(w.travel_daily_cost) : '',
+    travel_mode: w.travel_daily_cost == null ? 'default' : w.travel_daily_cost === 0 ? 'none' : 'custom',
+    travel_daily_cost: w.travel_daily_cost ? String(w.travel_daily_cost) : '',
     meal_deduction_default: w.meal_deduction_default != null ? String(w.meal_deduction_default) : '',
   };
 }
@@ -106,7 +114,8 @@ export function WorkplacesPage() {
       standard_weekly_hours: 42,
       work_days_per_week: Number(form.work_days_per_week),
       start_date: form.start_date || null,
-      travel_daily_cost: form.travel_daily_cost ? Number(form.travel_daily_cost) : null,
+      travel_daily_cost:
+        form.travel_mode === 'default' ? null : form.travel_mode === 'none' ? 0 : Number(form.travel_daily_cost) || 0,
       meal_deduction_default: form.meal_deduction_default ? Number(form.meal_deduction_default) : null,
     };
 
@@ -235,18 +244,31 @@ export function WorkplacesPage() {
                     קובע ותק לצורך חישוב זכויות (חופשה, מחלה, הבראה) במקום העבודה הזה.
                   </p>
 
-                  <Input
-                    label="עלות נסיעה יומית לעבודה (₪)"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={form.travel_daily_cost}
-                    onChange={(e) => setForm({ ...form, travel_daily_cost: e.target.value })}
-                  />
+                  <Select
+                    label="נסיעות"
+                    value={form.travel_mode}
+                    onChange={(e) => setForm({ ...form, travel_mode: e.target.value as TravelMode })}
+                  >
+                    <option value="default">כן — החזר מלא (עד ₪{DEFAULT_RATES.travel.dailyCap.toFixed(2)} ליום)</option>
+                    <option value="custom">כן — סכום אחר (תחבורה ציבורית זולה יותר)</option>
+                    <option value="none">לא זכאי/ת (הסעה מהמעסיק / גר/ה בקרבת מקום)</option>
+                  </Select>
+                  {form.travel_mode === 'custom' && (
+                    <Input
+                      label="עלות נסיעה יומית לעבודה (₪)"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      required
+                      value={form.travel_daily_cost}
+                      onChange={(e) => setForm({ ...form, travel_daily_cost: e.target.value })}
+                    />
+                  )}
                   <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
-                    עלות הנסיעה הזולה ביותר בתחבורה ציבורית ליום עבודה. ימולא אוטומטית בכל
-                    משמרת חדשה (עד תקרה חוקית של ₪22.60), וניתן לשנות לכל משמרת בנפרד. אין
-                    זכאות (למשל גרים פחות מ־500 מ&apos; מהעבודה)? השאירו ריק.
+                    עובד/ת שזקוק/ה לתחבורה כדי להגיע לעבודה זכאי/ת בחוק להחזר נסיעות לכל יום
+                    עבודה — לפי תעריף התחבורה הציבורית הזול ביותר ועד ₪{DEFAULT_RATES.travel.dailyCap.toFixed(2)}{' '}
+                    ליום, גם בימים שאין בהם תחבורה ציבורית (למשל שבתות וחגים). ימולא אוטומטית
+                    בכל משמרת חדשה, וניתן לשנות לכל משמרת בנפרד.
                   </p>
 
                   <Input
