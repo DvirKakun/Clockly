@@ -64,8 +64,11 @@ npm run build            # typecheck + build + PWA precache
 
 ## איכות קוד / Skills לפני PR
 
-`.claude/skills/` מכיל 5 סקילים כפי שהוגדר בפרומפט המקורי — clockly-code-review,
-ui-ux-review, clockly-security-review, performance-review, dependency-health
+`.claude/skills/` מכיל 6 סקילים — clockly-code-review, ui-ux-review,
+clockly-security-review, performance-review, dependency-health,
+clockly-auto-config-review (בודק שכל שדה/הגדרה חדשה שנדרש מהמשתמש למלא
+לא ניתנת לחישוב אוטומטי מנתונים שכבר קיימים באפליקציה — תאריך/שעה, מיקום,
+לוח שנה עברי, או היסטוריית משמרות — לפני שמקבלים אותה כקלט ידני).
 (שני הראשונים ממותגים עם קידומת `clockly-` כדי לא להסתתר מאחורי הסקילים
 המובנים `code-review`/`security-review` של Claude Code, שחולקים את אותו השם).
 כל אחד מגדיר קלט/פלט, checklist קונקרטי ל-Clockly (לא גנרי), וקריטריון עובר/נכשל.

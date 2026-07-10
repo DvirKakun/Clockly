@@ -25,6 +25,7 @@ type FormState = {
   monthly_salary: string;
   work_days_per_week: '5' | '6';
   start_date: string;
+  travel_daily_cost: string;
 };
 
 const emptyForm: FormState = {
@@ -34,8 +35,12 @@ const emptyForm: FormState = {
   hourly_rate: '',
   daily_rate: '',
   monthly_salary: '',
-  work_days_per_week: '5',
+  // 6-day standard (8h/day before overtime) is the safer default for shift-based work
+  // without a fixed weekly pattern — it triggers overtime sooner than the 5-day standard,
+  // so it doesn't under-credit someone who turns out to work irregular/rotating days.
+  work_days_per_week: '6',
   start_date: '',
+  travel_daily_cost: '',
 };
 
 function workplaceToForm(w: Workplace): FormState {
@@ -48,6 +53,7 @@ function workplaceToForm(w: Workplace): FormState {
     monthly_salary: w.monthly_salary != null ? String(w.monthly_salary) : '',
     work_days_per_week: String(w.work_days_per_week) as '5' | '6',
     start_date: w.start_date ?? '',
+    travel_daily_cost: w.travel_daily_cost != null ? String(w.travel_daily_cost) : '',
   };
 }
 
@@ -95,6 +101,7 @@ export function WorkplacesPage() {
       standard_weekly_hours: 42,
       work_days_per_week: Number(form.work_days_per_week),
       start_date: form.start_date || null,
+      travel_daily_cost: form.travel_daily_cost ? Number(form.travel_daily_cost) : null,
     };
 
     try {
@@ -196,13 +203,18 @@ export function WorkplacesPage() {
                   )}
 
                   <Select
-                    label="ימי עבודה בשבוע"
+                    label="ימי עבודה בשבוע במקום העבודה"
                     value={form.work_days_per_week}
                     onChange={(e) => setForm({ ...form, work_days_per_week: e.target.value as '5' | '6' })}
                   >
-                    <option value="5">5 ימים</option>
-                    <option value="6">6 ימים</option>
+                    <option value="6">6 ימים / משמרות לא קבועות</option>
+                    <option value="5">5 ימים קבועים</option>
                   </Select>
+                  <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                    קובע מתי מתחילות שעות נוספות: 8 שעות ביום ב־6 ימים, 8:36 שעות ביום ב־5
+                    ימים. אין לכם דפוס קבוע (כמו במשמרות)? השאירו על 6 ימים — זה גם הסף
+                    הבטוח יותר לחישוב.
+                  </p>
 
                   <Input
                     label="תאריך תחילת עבודה"
@@ -213,6 +225,20 @@ export function WorkplacesPage() {
                   />
                   <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
                     קובע ותק לצורך חישוב זכויות (חופשה, מחלה, הבראה) במקום העבודה הזה.
+                  </p>
+
+                  <Input
+                    label="עלות נסיעה יומית לעבודה (₪)"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={form.travel_daily_cost}
+                    onChange={(e) => setForm({ ...form, travel_daily_cost: e.target.value })}
+                  />
+                  <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                    עלות הנסיעה הזולה ביותר בתחבורה ציבורית ליום עבודה. ימולא אוטומטית בכל
+                    משמרת חדשה (עד תקרה חוקית של ₪22.60), וניתן לשנות לכל משמרת בנפרד. אין
+                    זכאות (למשל גרים פחות מ־500 מ&apos; מהעבודה)? השאירו ריק.
                   </p>
 
                   {error && <p className="text-sm text-red-500">{error}</p>}

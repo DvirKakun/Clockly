@@ -30,8 +30,21 @@
     "overtimeFirstTierHours": 2,
     "overtimeFirstTierRate": 1.75,
     "overtimeSecondTierRate": 2.0,
-    "holidayCompensationMaxRate": 2.5
+    "holidayCompensationMaxRate": 2.5,
+    "startBufferBeforeSunsetMinutes": 60,
+    "endBufferAfterSunsetMinutes": 20,
+    "location": { "latitude": 32.0853, "longitude": 34.7818, "timeZone": "Asia/Jerusalem" }
   },
+  "statutoryHolidays": [
+    { "day": 1, "monthName": "Tishri", "label": "ראש השנה" },
+    { "day": 2, "monthName": "Tishri", "label": "ראש השנה" },
+    { "day": 10, "monthName": "Tishri", "label": "יום כיפור" },
+    { "day": 15, "monthName": "Tishri", "label": "סוכות" },
+    { "day": 22, "monthName": "Tishri", "label": "שמחת תורה" },
+    { "day": 15, "monthName": "Nisan", "label": "פסח" },
+    { "day": 21, "monthName": "Nisan", "label": "שביעי של פסח" },
+    { "day": 6, "monthName": "Sivan", "label": "שבועות" }
+  ],
   "incomeTaxBracketsMonthly": [
     { "upTo": 7010, "rate": 0.10 },
     { "upTo": 10060, "rate": 0.14 },

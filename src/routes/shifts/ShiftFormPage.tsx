@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Info, Moon, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { Switch } from '@/components/ui/Switch';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { useCreateShift, useDeleteShift, useShift, useUpdateShift } from '@/hooks/useShifts';
+import { DEFAULT_RATES, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 
 function todayIso() {
   const d = new Date();
@@ -20,6 +20,22 @@ interface BreakField {
   end_time: string;
   is_paid: boolean;
 }
+
+type DayType = 'regular' | 'shabbat' | 'holiday';
+type DayTypeChoice = 'auto' | DayType;
+
+function detectDayType(date: string, startTime: string, endTime: string, crossesMidnight: boolean): DayType {
+  const holiday = statutoryHolidayName(date);
+  if (holiday) return 'holiday';
+  if (isShiftFullyInShabbat(date, startTime, endTime, crossesMidnight)) return 'shabbat';
+  return 'regular';
+}
+
+const dayTypeLabels: Record<DayType, string> = {
+  regular: 'יום רגיל',
+  shabbat: 'שבת',
+  holiday: 'חג',
+};
 
 export function ShiftFormPage() {
   const navigate = useNavigate();
@@ -37,8 +53,7 @@ export function ShiftFormPage() {
   const [date, setDate] = useState(todayIso());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
-  const [crossesMidnight, setCrossesMidnight] = useState(false);
-  const [dayType, setDayType] = useState<'regular' | 'shabbat' | 'holiday'>('regular');
+  const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>('auto');
   const [bonuses, setBonuses] = useState('0');
   const [tips, setTips] = useState('0');
   const [travel, setTravel] = useState('0');
@@ -46,14 +61,27 @@ export function ShiftFormPage() {
   const [notes, setNotes] = useState('');
   const [breaks, setBreaks] = useState<BreakField[]>([]);
 
+  // Crossing midnight is a pure function of the two time fields — never a manual choice.
+  const crossesMidnight = endTime !== '' && endTime <= startTime;
+
+  const detectedDayType = useMemo(
+    () => detectDayType(date, startTime, endTime, crossesMidnight),
+    [date, startTime, endTime, crossesMidnight]
+  );
+  const dayType: DayType = dayTypeChoice === 'auto' ? detectedDayType : dayTypeChoice;
+  const straddlesShabbatBoundary = useMemo(
+    () => shiftPartiallyOverlapsShabbat(date, startTime, endTime, crossesMidnight),
+    [date, startTime, endTime, crossesMidnight]
+  );
+
   useEffect(() => {
     if (existing) {
       setWorkplaceId(existing.workplace_id);
       setDate(existing.date);
       setStartTime(existing.start_time.slice(0, 5));
       setEndTime(existing.end_time?.slice(0, 5) ?? '17:00');
-      setCrossesMidnight(existing.crosses_midnight);
-      setDayType(existing.day_type as 'regular' | 'shabbat' | 'holiday');
+      // Preserve whatever was already saved rather than silently reclassifying past shifts.
+      setDayTypeChoice(existing.day_type as DayType);
       setBonuses(String(existing.bonuses));
       setTips(String(existing.tips));
       setTravel(String(existing.travel_reimbursement));
@@ -61,9 +89,22 @@ export function ShiftFormPage() {
       setNotes(existing.notes ?? '');
       setBreaks(existing.breaks.map((b) => ({ start_time: b.start_time.slice(0, 5), end_time: b.end_time.slice(0, 5), is_paid: b.is_paid })));
     } else if (workplaces.length > 0 && !workplaceId) {
-      setWorkplaceId(workplaces[0].id);
+      const workplace = workplaces[0];
+      setWorkplaceId(workplace.id);
+      if (workplace.travel_daily_cost != null) {
+        setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
+      }
     }
   }, [existing, workplaces, workplaceId]);
+
+  function handleWorkplaceChange(newWorkplaceId: string) {
+    setWorkplaceId(newWorkplaceId);
+    if (isEdit) return; // don't override a saved shift's own recorded travel cost
+    const workplace = workplaces.find((w) => w.id === newWorkplaceId);
+    if (workplace?.travel_daily_cost != null) {
+      setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +155,7 @@ export function ShiftFormPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">
-            <Select label="מקום עבודה" value={workplaceId} onChange={(e) => setWorkplaceId(e.target.value)} required>
+            <Select label="מקום עבודה" value={workplaceId} onChange={(e) => handleWorkplaceChange(e.target.value)} required>
               {workplaces.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -143,18 +184,31 @@ export function ShiftFormPage() {
               />
             </div>
 
-            <Switch
-              checked={crossesMidnight}
-              onChange={setCrossesMidnight}
-              label="משמרת חוצה חצות"
-              description="המשמרת מסתיימת ביום שאחרי"
-            />
+            {crossesMidnight && (
+              <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-3 py-2 text-xs text-black/50 dark:bg-white/[0.04] dark:text-white/50">
+                <Moon size={14} className="shrink-0" />
+                זוהתה משמרת חוצה חצות — מסתיימת ביום שאחרי
+              </div>
+            )}
 
-            <Select label="סוג יום" value={dayType} onChange={(e) => setDayType(e.target.value as typeof dayType)}>
+            <Select
+              label="סוג יום"
+              value={dayTypeChoice}
+              onChange={(e) => setDayTypeChoice(e.target.value as DayTypeChoice)}
+            >
+              <option value="auto">אוטומטי (זוהה: {dayTypeLabels[detectedDayType]})</option>
               <option value="regular">יום רגיל</option>
               <option value="shabbat">שבת</option>
               <option value="holiday">חג</option>
             </Select>
+
+            {dayTypeChoice === 'auto' && straddlesShabbatBoundary && (
+              <div className="flex gap-2 rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <Info size={14} className="mt-0.5 shrink-0" />
+                המשמרת חוצה את כניסת/יציאת השבת באמצעה — הזיהוי האוטומטי סימן אותה כ&quot;יום
+                רגיל&quot;. לחישוב מדויק, שקלו לפצל לשתי משמרות נפרדות או לבחור ידנית.
+              </div>
+            )}
           </Card>
 
           <Card className="flex flex-col gap-3">
@@ -206,6 +260,10 @@ export function ShiftFormPage() {
               <Input label="נסיעות (₪)" type="number" value={travel} onChange={(e) => setTravel(e.target.value)} />
               <Input label="ניכוי ארוחות (₪)" type="number" value={meal} onChange={(e) => setMeal(e.target.value)} />
             </div>
+            <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+              דמי הנסיעות מחושבים אוטומטית לפי עלות הנסיעה היומית שהוגדרה במקום העבודה
+              (עד לתקרה החוקית), וניתן לשנות לכל משמרת בנפרד.
+            </p>
             <Input label="הערות" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Card>
 

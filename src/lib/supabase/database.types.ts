@@ -185,6 +185,7 @@ export type Database = {
           name: string;
           standard_weekly_hours: number;
           start_date: string | null;
+          travel_daily_cost: number | null;
           updated_at: string;
           user_id: string;
           work_days_per_week: number;
@@ -201,6 +202,7 @@ export type Database = {
           name: string;
           standard_weekly_hours?: number;
           start_date?: string | null;
+          travel_daily_cost?: number | null;
           updated_at?: string;
           user_id: string;
           work_days_per_week?: number;
@@ -217,6 +219,7 @@ export type Database = {
           name?: string;
           standard_weekly_hours?: number;
           start_date?: string | null;
+          travel_daily_cost?: number | null;
           updated_at?: string;
           user_id?: string;
           work_days_per_week?: number;

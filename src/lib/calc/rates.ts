@@ -31,7 +31,13 @@ export interface LegalRatesConfig {
     overtimeFirstTierRate: number;
     overtimeSecondTierRate: number;
     holidayCompensationMaxRate: number;
+    /** Statutory: weekly rest begins at the workplace one hour before Friday sunset. */
+    startBufferBeforeSunsetMinutes: number;
+    /** Approximation of tzeit hakochavim (nightfall); not a single fixed legal offset. */
+    endBufferAfterSunsetMinutes: number;
+    location: { latitude: number; longitude: number; timeZone: string };
   };
+  statutoryHolidays: { day: number; monthName: string; label: string }[];
   incomeTaxBracketsMonthly: TaxBracket[];
   surtax: { monthlyThreshold: number; annualThreshold: number; rate: number; note: string };
   taxCreditPoint: { monthlyValue: number; residentPoints: number; femalePoints: number };
