@@ -62,11 +62,23 @@ npm run build            # typecheck + build + PWA precache
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
+## איכות קוד / Skills לפני PR
+
+`.claude/skills/` מכיל 5 סקילים כפי שהוגדר בפרומפט המקורי — code-review,
+ui-ux-review, security-review, performance-review, dependency-health. כל אחד
+מגדיר קלט/פלט, checklist קונקרטי ל-Clockly (לא גנרי), וקריטריון עובר/נכשל.
+`.github/workflows/pr-checks.yml` אוכף את החלקים המכניים (typecheck, lint,
+vitest, build, `npm audit`) על כל PR; החלקים השיפוטיים (RTL/dark-mode על
+מסך אמיתי, בידוד RLS בסכמה חדשה, כיסוי טסטים למקרי קצה חדשים במנוע החישוב)
+דורשים הרצת הסקיל המתאים ידנית או דרך Claude Code — אין להם עדיין gate
+מכני ב-CI, וזה מתועד בכל SKILL.md בסעיף "How it runs".
+
 ## מה עוד חסר (לא במסגרת הסבב הנוכחי)
 
 - דוחות/ייצוא PDF/Excel, השוואה מול תלוש אמיתי.
 - מסך זכויות עובד (חופשה/מחלה/הבראה) — הלוגיקה קיימת, ה-UI לא.
 - Web Push notifications לתזכורות כניסה/יציאה.
 - Geolocation-based reminders.
-- `.claude/skills/` לביקורות Code Review / UI-UX / Security / Performance / Dependency
-  שרצות אוטומטית לפני PR (מתואר בפרומפט המקורי, טרם מומש כתשתית).
+- תצוגת לוח שנה (יש רק תצוגת רשימה), תבניות/משמרות קבועות, תקופת חישוב
+  מותאמת (למשל 15 לחודש), ולידציה על שכר מינימום בקלט.
+- בדיקת Core Web Vitals/Lighthouse אמיתית — נבדק רק רינדור בדפדפן, לא נמדד.
