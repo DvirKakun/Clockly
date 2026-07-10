@@ -7,7 +7,12 @@ export function useAuthListener() {
   const setInitializing = useAuthStore((s) => s.setInitializing);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    // getSession() resolves near-instantly from local storage, which made the splash
+    // screen flash for a single frame. A short minimum hold makes it actually
+    // perceptible, like a native app's launch screen.
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 500));
+
+    Promise.all([supabase.auth.getSession(), minDelay]).then(([{ data }]) => {
       setSession(data.session);
       setInitializing(false);
     });
