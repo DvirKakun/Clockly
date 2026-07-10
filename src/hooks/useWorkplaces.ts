@@ -25,6 +25,23 @@ export function useWorkplaces() {
   });
 }
 
+// Includes archived workplaces, unlike useWorkplaces(). A shift created before its workplace
+// was removed still needs to show/select that workplace on its own edit form, even though the
+// workplace no longer appears anywhere else (creation defaults, other shifts' pickers, etc).
+export function useAllWorkplaces() {
+  const userId = useAuthStore((s) => s.user?.id);
+
+  return useQuery({
+    queryKey: ['workplaces', 'all', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('workplaces').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      return data as Workplace[];
+    },
+  });
+}
+
 export function useCreateWorkplace() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id);
