@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeShiftGross, computeShiftHours, computeMonthlyGross } from '../grossEngine';
+import { shabbatOverlapOffsetMinutes } from '../shabbatHoliday';
 import type { RateProfile, ShiftInput } from '../types';
 
 const hourlyProfile: RateProfile = {
@@ -139,5 +140,101 @@ describe('computeMonthlyGross', () => {
     const shifts = [shift({ travelReimbursement: 22.6 })];
     const result = computeMonthlyGross(shifts, hourlyProfile, { carValueAddition: 0 });
     expect(result.taxableGross).toBeCloseTo(result.totalGross - 22.6, 5);
+  });
+});
+
+describe('computeShiftHours (Shabbat boundary split)', () => {
+  // 2026-07-10 is a Friday; the Shabbat-entry boundary always falls within 14:00-19:00
+  // local time year-round (see shabbatHoliday.test.ts), so a shift from 06:00 to 22:00
+  // is guaranteed to straddle it without needing to know the exact sunset minute.
+  const fridayDate = '2026-07-10';
+  const sixDayProfile: RateProfile = { ...hourlyProfile, workDaysPerWeek: 6 };
+
+  it('splits a straddling shift into a regular segment and a Shabbat segment', () => {
+    const s = shift({ date: fridayDate, startTime: '06:00', endTime: '22:00' }); // 16h, dayType stays 'regular'
+    const h = computeShiftHours(s, sixDayProfile);
+
+    const overlap = shabbatOverlapOffsetMinutes(fridayDate, '06:00', '22:00', false)!;
+    expect(overlap).not.toBeNull();
+
+    const expectedRegularZoneHours = overlap.startOffsetMin / 60;
+    const expectedShabbatZoneHours = (960 - overlap.startOffsetMin) / 60; // 960min = 16h total
+
+    // Both zones present, hours fully accounted for (workDaysPerWeek=6 -> 8h standard budget
+    // shared chronologically, so beyond it things spill into overtime — assert conservation
+    // rather than a fixed split, since a 16h shift will trigger overtime in both zones).
+    const totalAccounted =
+      h.regularHours + h.overtime125Hours + h.overtime150Hours + h.shabbatBaseHours + h.shabbatOvertime175Hours + h.shabbatOvertime200Hours;
+    expect(totalAccounted).toBeCloseTo(h.payableHours, 5);
+    expect(h.regularHours + h.overtime125Hours + h.overtime150Hours).toBeCloseTo(expectedRegularZoneHours, 5);
+    expect(h.shabbatBaseHours + h.shabbatOvertime175Hours + h.shabbatOvertime200Hours).toBeCloseTo(
+      expectedShabbatZoneHours,
+      5
+    );
+    expect(h.regularHours).toBeGreaterThan(0);
+    // The regular zone alone (8-13h, depending on season) can already exceed the 8h shared
+    // budget for a 16h shift, in which case the Shabbat zone is entirely overtime-rated
+    // (175%/200%) rather than base-rated (150%) — that's correct, not a bug, and more
+    // generous to the worker. Assert the zone has *some* pay, not specifically base-rate.
+    expect(h.shabbatBaseHours + h.shabbatOvertime175Hours + h.shabbatOvertime200Hours).toBeGreaterThan(0);
+  });
+
+  it("matches the user's worked example: 6h regular + 2h Shabbat, both under the daily threshold", () => {
+    // Find the boundary's minute-of-day by probing with a shift starting at 06:00 (comfortably
+    // before the boundary in any season — see shabbatHoliday.test.ts), then build a new shift
+    // that starts exactly 6h before that boundary and ends exactly 2h after it.
+    const probe = shabbatOverlapOffsetMinutes(fridayDate, '06:00', '23:59', false)!;
+    const boundaryMinuteOfDay = 6 * 60 + probe.startOffsetMin;
+    const shiftStartMin = boundaryMinuteOfDay - 6 * 60;
+    const endTotalMin = boundaryMinuteOfDay + 2 * 60;
+    const toHHMM = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+    const startTime = toHHMM(shiftStartMin);
+    const endTime = toHHMM(endTotalMin);
+
+    const s = shift({ date: fridayDate, startTime, endTime, crossesMidnight: endTotalMin >= 24 * 60 });
+    const h = computeShiftHours(s, sixDayProfile); // 8h standard threshold for 6-day week — 8h total shift, no overtime
+
+    expect(h.regularHours).toBeCloseTo(6, 1);
+    expect(h.shabbatBaseHours).toBeCloseTo(2, 1);
+    expect(h.overtime125Hours).toBeCloseTo(0, 1);
+    expect(h.overtime150Hours).toBeCloseTo(0, 1);
+    expect(h.shabbatOvertime175Hours).toBeCloseTo(0, 1);
+
+    const gross = computeShiftGross(s, sixDayProfile);
+    expect(gross.regularPay).toBeCloseTo(6 * 40 * 1, 1); // 240
+    expect(gross.shabbatBasePay).toBeCloseTo(2 * 40 * 1.5, 1); // 120
+    expect(gross.totalGross).toBeCloseTo(gross.regularPay + gross.shabbatBasePay, 5);
+  });
+
+  it('does not split when the user explicitly overrides dayType to shabbat', () => {
+    const s = shift({ date: fridayDate, startTime: '06:00', endTime: '22:00', dayType: 'shabbat' });
+    const h = computeShiftHours(s, sixDayProfile);
+    expect(h.regularHours).toBe(0);
+    expect(h.overtime125Hours).toBe(0);
+    expect(h.overtime150Hours).toBe(0);
+    expect(h.shabbatBaseHours).toBeGreaterThan(0);
+  });
+
+  it('does not split a shift on a plain weekday', () => {
+    const s = shift({ date: '2026-07-08', startTime: '09:00', endTime: '17:00' }); // Wednesday
+    const h = computeShiftHours(s, sixDayProfile);
+    expect(h.shabbatBaseHours).toBe(0);
+    expect(h.regularHours).toBeCloseTo(8, 5);
+  });
+
+  it('attributes unpaid break minutes to the correct zone', () => {
+    // A 1h unpaid break placed entirely within the (known-safe) pre-boundary window.
+    const s = shift({
+      date: fridayDate,
+      startTime: '06:00',
+      endTime: '22:00',
+      breaks: [{ startTime: '07:00', endTime: '08:00', isPaid: false }],
+    });
+    const h = computeShiftHours(s, sixDayProfile);
+    expect(h.unpaidBreakHours).toBeCloseTo(1, 5);
+    expect(h.payableHours).toBeCloseTo(15, 5); // 16h total - 1h unpaid break
+    const totalAccounted =
+      h.regularHours + h.overtime125Hours + h.overtime150Hours + h.shabbatBaseHours + h.shabbatOvertime175Hours + h.shabbatOvertime200Hours;
+    expect(totalAccounted).toBeCloseTo(h.payableHours, 5);
   });
 });
