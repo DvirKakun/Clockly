@@ -9,19 +9,28 @@ import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { formatCurrency } from '@/lib/format';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
-import { MONTH_NAMES_HE, monthRange } from '@/lib/date';
+import { MONTH_NAMES_HE } from '@/lib/date';
+import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 
 export function ReportsPage() {
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const { start, end } = monthRange(cursor.year, cursor.month);
-  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
 
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
-  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(start, end);
   const { data: taxProfile } = useTaxProfile();
+
+  // Falls back to a calendar month (start day 1) until the tax profile loads.
+  const startDay = taxProfile?.pay_period_start_day ?? 1;
+  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  // Plain "month year" only. The LTR date range is rendered as its own dir="ltr" element below —
+  // never inlined into this Hebrew string, or the bidi algorithm flips it to end–start on screen.
+  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
+
+  // Gate the fetch on the tax profile (which holds the pay-period start day) so a custom-period
+  // user never sees a calendar-month window's report for a frame.
+  const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
   const summary = useMemo(() => {
     if (!taxProfile || workplaces.length === 0) return null;
@@ -77,7 +86,14 @@ export function ReportsPage() {
           </button>
         </header>
 
-        <p className="-mt-2 text-center text-sm text-black/50 dark:text-white/50">{monthLabel}</p>
+        <div className="-mt-2 text-center">
+          <p className="text-sm text-black/50 dark:text-white/50">{monthLabel}</p>
+          {startDay !== 1 && (
+            <p className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+              {payPeriodRangeLabel(period)}
+            </p>
+          )}
+        </div>
 
         <div className="flex gap-2">
           <Button variant="secondary" fullWidth onClick={handleExportExcel} disabled={!summary || exporting}>
@@ -145,10 +161,16 @@ export function ReportsPage() {
                       .sort((a, b) => a.date.localeCompare(b.date))
                       .map(({ shift, date, dayType }) => (
                         <tr key={shift.shiftId} className="border-t border-black/5 dark:border-white/10">
-                          <td className="py-1.5" dir="ltr">
-                            {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+                          {/* dir="ltr" on the number only — putting it on the <td> would also flip
+                              the cell's alignment to the left, colliding the date into the next column. */}
+                          <td className="py-1.5 text-start">
+                            <span dir="ltr">
+                              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+                            </span>
                           </td>
-                          <td className="py-1.5">{dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}</td>
+                          <td className="py-1.5 text-start">
+                            {dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}
+                          </td>
                           <td className="py-1.5">{shift.hours.payableHours.toFixed(1)}</td>
                           <td className="py-1.5 font-medium">{formatCurrency(shift.totalGross)}</td>
                         </tr>

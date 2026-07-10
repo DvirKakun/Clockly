@@ -24,12 +24,12 @@ export interface ShiftFormValues {
   breaks: { start_time: string; end_time: string; is_paid: boolean }[];
 }
 
-export function useShiftsForRange(startDate: string, endDate: string) {
+export function useShiftsForRange(startDate: string, endDate: string, enabled = true) {
   const userId = useAuthStore((s) => s.user?.id);
 
   return useQuery({
     queryKey: ['shifts', userId, startDate, endDate],
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shifts')

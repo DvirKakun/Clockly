@@ -145,6 +145,7 @@ export type Database = {
           is_female: boolean;
           is_resident: boolean;
           keren_hishtalmut_opt_in: boolean;
+          pay_period_start_day: number;
           pension_opt_in: boolean;
           updated_at: string;
         };
@@ -156,6 +157,7 @@ export type Database = {
           is_female?: boolean;
           is_resident?: boolean;
           keren_hishtalmut_opt_in?: boolean;
+          pay_period_start_day?: number;
           pension_opt_in?: boolean;
           updated_at?: string;
         };
@@ -167,6 +169,7 @@ export type Database = {
           is_female?: boolean;
           is_resident?: boolean;
           keren_hishtalmut_opt_in?: boolean;
+          pay_period_start_day?: number;
           pension_opt_in?: boolean;
           updated_at?: string;
         };

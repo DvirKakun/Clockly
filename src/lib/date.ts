@@ -6,10 +6,11 @@ export const WEEKDAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביע
 export const WEEKDAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 export function monthRange(year: number, month: number): { start: string; end: string } {
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: iso(start), end: iso(end) };
+  // Build the boundaries in UTC. Using a local-time `new Date(year, month, 1)` and then
+  // `.toISOString()` shifts the date by a day in any timezone ahead of UTC (e.g. Asia/Jerusalem),
+  // which silently pulled shifts into the wrong month's totals.
+  const iso = (m: number, d: number) => new Date(Date.UTC(year, m, d)).toISOString().slice(0, 10);
+  return { start: iso(month, 1), end: iso(month + 1, 0) };
 }
 
 export function todayIso(): string {
