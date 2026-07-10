@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Trash2, Briefcase, X, ChevronLeft } from 'lucide-react';
+import { Plus, Trash2, Briefcase, X, ChevronLeft, Check } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -156,10 +156,16 @@ export function WorkplacesPage() {
                         key={c}
                         type="button"
                         onClick={() => setForm({ ...form, color: c })}
-                        className="h-8 w-8 rounded-full ring-offset-2 dark:ring-offset-[#16171d]"
-                        style={{ backgroundColor: c, boxShadow: form.color === c ? `0 0 0 2px ${c}` : undefined }}
-                        aria-label={`צבע ${c}`}
-                      />
+                        className="flex h-11 w-11 items-center justify-center rounded-full ring-offset-2 dark:ring-offset-[#16171d]"
+                        style={{
+                          backgroundColor: c,
+                          boxShadow: form.color === c ? '0 0 0 2px currentColor' : undefined,
+                          color: 'var(--color-brand-500)',
+                        }}
+                        aria-label={`צבע ${c}${form.color === c ? ' (נבחר)' : ''}`}
+                      >
+                        {form.color === c && <Check size={18} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />}
+                      </button>
                     ))}
                   </div>
 
@@ -326,7 +332,7 @@ function WorkplaceCard({
             e.stopPropagation();
             onArchive();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-black/30 active:bg-red-500/10 active:text-red-500 dark:text-white/30"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-black/30 active:bg-red-500/10 active:text-red-500 dark:text-white/30"
           aria-label="הסרה"
         >
           <Trash2 size={17} />

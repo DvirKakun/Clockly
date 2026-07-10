@@ -62,6 +62,7 @@ export function ShiftFormPage() {
   const [meal, setMeal] = useState('0');
   const [notes, setNotes] = useState('');
   const [breaks, setBreaks] = useState<BreakField[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Crossing midnight is a pure function of the two time fields — never a manual choice.
   const crossesMidnight = endTime !== '' && endTime <= startTime;
@@ -142,6 +143,7 @@ export function ShiftFormPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     const values = {
       workplace_id: workplaceId,
       date,
@@ -158,12 +160,16 @@ export function ShiftFormPage() {
       breaks,
     };
 
-    if (isEdit && id) {
-      await updateShift.mutateAsync({ id, ...values });
-    } else {
-      await createShift.mutateAsync(values);
+    try {
+      if (isEdit && id) {
+        await updateShift.mutateAsync({ id, ...values });
+      } else {
+        await createShift.mutateAsync(values);
+      }
+      navigate('/shifts');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
     }
-    navigate('/shifts');
   }
 
   async function handleDelete() {
@@ -179,7 +185,7 @@ export function ShiftFormPage() {
         <header className="flex items-center gap-3 pt-1">
           <button
             onClick={() => navigate(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
             aria-label="חזרה"
           >
             <ChevronRight size={18} />
@@ -334,7 +340,7 @@ export function ShiftFormPage() {
                 <button
                   type="button"
                   onClick={() => setBreaks(breaks.filter((_, j) => j !== i))}
-                  className="mt-6 flex h-9 w-9 items-center justify-center rounded-full text-black/30 dark:text-white/30"
+                  className="mt-6 flex h-11 w-11 items-center justify-center rounded-full text-black/30 dark:text-white/30"
                   aria-label="הסרת הפסקה"
                 >
                   <Trash2 size={16} />
@@ -357,6 +363,8 @@ export function ShiftFormPage() {
             </p>
             <Input label="הערות" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Card>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <Button type="submit" fullWidth disabled={!workplaceId || createShift.isPending || updateShift.isPending}>
             שמירה
