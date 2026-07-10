@@ -23,6 +23,7 @@ export function useTaxProfile() {
 export function useUpdateTaxProfile() {
   const queryClient = useQueryClient();
   const userId = useAuthStore((s) => s.user?.id);
+  const queryKey = ['tax-profile', userId];
 
   return useMutation({
     mutationFn: async (updates: TaxProfileUpdate) => {
@@ -36,6 +37,22 @@ export function useUpdateTaxProfile() {
       if (error) throw error;
       return data as TaxProfileRow;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tax-profile'] }),
+    // Optimistic update: toggles (is_resident, pension_opt_in, ...) are read straight from this
+    // query, so without this they'd only flip after a full round trip to Supabase — visible lag
+    // on every tap. Apply the change to the cache immediately and roll back on failure.
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<TaxProfileRow>(queryKey);
+      if (previous) {
+        queryClient.setQueryData<TaxProfileRow>(queryKey, { ...previous, ...updates });
+      }
+      return { previous };
+    },
+    onError: (_err, _updates, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tax-profile'] }),
   });
 }
