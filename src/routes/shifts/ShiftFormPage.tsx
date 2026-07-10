@@ -122,11 +122,25 @@ export function ShiftFormPage() {
               ))}
             </Select>
 
-            <Input label="תאריך" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <Input label="תאריך" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
 
             <div className="grid grid-cols-2 gap-3">
-              <Input label="שעת התחלה" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-              <Input label="שעת סיום" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+              <Input
+                label="שעת התחלה"
+                type="time"
+                dir="ltr"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
+              <Input
+                label="שעת סיום"
+                type="time"
+                dir="ltr"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                required
+              />
             </div>
 
             <Switch
@@ -159,6 +173,7 @@ export function ShiftFormPage() {
                 <Input
                   label="התחלה"
                   type="time"
+                  dir="ltr"
                   value={brk.start_time}
                   onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, start_time: e.target.value } : b)))}
                   className="flex-1"
@@ -166,6 +181,7 @@ export function ShiftFormPage() {
                 <Input
                   label="סיום"
                   type="time"
+                  dir="ltr"
                   value={brk.end_time}
                   onChange={(e) => setBreaks(breaks.map((b, j) => (j === i ? { ...b, end_time: e.target.value } : b)))}
                   className="flex-1"
