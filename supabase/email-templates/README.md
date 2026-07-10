@@ -21,24 +21,38 @@ separate things make them "from Clockly":
    handle the inline-styled table layout used here fine; if a client mangles it, strip it down
    further rather than adding `<style>` blocks (Outlook desktop ignores those).
 
-This alone changes the *look* of the email but **not the sender address** — it'll still say
-"via supabase.io" or similar, because Supabase's shared mail server is still doing the sending.
+This alone changes the *look* of the email but **not the sender name** — it'll still show as
+coming from Supabase, because Supabase's shared mail server is still doing the sending, and its
+sender name isn't configurable (only Custom SMTP unlocks that field).
 
-### b. Custom SMTP (needed for the sender address itself, e.g. noreply@clockly.app)
+### b. Custom SMTP — needed for the "From" name to say Clockly, and for real users to get mail at all
 
-This needs an SMTP provider account you control — I can't create one for you. Quick path:
+**This isn't just cosmetic.** Per Supabase's own docs, the built-in default mailer (no Custom
+SMTP configured) will only deliver to addresses that are team members of your Supabase
+organization — every other recipient gets silently refused with "Email address not authorized."
+That means **right now, anyone other than you signing up for real likely isn't receiving a
+confirmation email at all.** Custom SMTP fixes both the branding and this.
 
-1. Sign up for an SMTP provider with a usable free tier — **Resend** (resend.com) is the
-   easiest for a single small app; SendGrid/Postmark work too.
-2. Add and verify your sending domain there (they'll give you DNS records — SPF, DKIM, and
-   usually a tracking CNAME — to add wherever your domain's DNS is managed).
-3. Supabase Dashboard → **Authentication → Emails → SMTP Settings** → enable custom SMTP, fill
-   in the host/port/username/password the provider gave you, set the sender to something like
-   `Clockly <noreply@yourdomain.com>`.
-4. Send a test email from that same Supabase screen to confirm it works before relying on it.
+You do **not** need to own a domain for this — Resend's free tier includes a ready-to-use
+sender (`onboarding@resend.dev`) that works immediately with zero domain setup, and still lets
+the display name say "Clockly":
 
-Without a domain of your own, skip this step — the branded templates from part (a) still help
-even sent from Supabase's default address.
+1. Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month, 100/day —
+   plenty for this app). No domain or credit card needed to start.
+2. Dashboard → **API Keys** → create a key (or **SMTP** tab, which shows ready-made SMTP
+   credentials for `smtp.resend.com`, port 587, username `resend`, password = your API key).
+3. Supabase Dashboard → **Authentication → Emails → SMTP Settings** → enable Custom SMTP:
+   - Host: `smtp.resend.com`, Port: `587`
+   - Username: `resend`, Password: the API key from step 2
+   - Sender email: `onboarding@resend.dev` (Resend's shared no-verification-needed address)
+   - Sender name: `Clockly` ← this is the field that makes inboxes show "Clockly <onboarding@resend.dev>"
+4. Save, then use the "Send test email" button on that same Supabase screen to confirm delivery
+   to an address outside your team before relying on it.
+5. If you later buy a domain, verify it in Resend (Domains → Add Domain → add the SPF/DKIM DNS
+   records they give you) and swap the sender email to `noreply@yourdomain.com` — the sender
+   name field stays "Clockly" either way, no other change needed.
+
+Resend also documents this exact integration directly: [resend.com/docs/send-with-supabase-smtp](https://resend.com/docs/send-with-supabase-smtp).
 
 ## 2. Google sign-in showing your Supabase project URL
 
