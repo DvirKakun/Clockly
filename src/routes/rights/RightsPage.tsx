@@ -34,7 +34,7 @@ export function RightsPage() {
         <header className="flex items-center gap-3 pt-1">
           <button
             onClick={() => navigate(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
             aria-label="חזרה"
           >
             <ChevronRight size={18} />

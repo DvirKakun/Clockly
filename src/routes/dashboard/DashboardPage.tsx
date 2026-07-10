@@ -49,7 +49,7 @@ export function DashboardPage() {
         <header className="flex items-center justify-between pt-1">
           <button
             onClick={() => setCursor((c) => (c.month === 0 ? { year: c.year - 1, month: 11 } : { ...c, month: c.month - 1 }))}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
             aria-label="חודש קודם"
           >
             <ChevronRight size={18} />
@@ -59,7 +59,7 @@ export function DashboardPage() {
           </h1>
           <button
             onClick={() => setCursor((c) => (c.month === 11 ? { year: c.year + 1, month: 0 } : { ...c, month: c.month + 1 }))}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
             aria-label="חודש הבא"
           >
             <ChevronLeft size={18} />
