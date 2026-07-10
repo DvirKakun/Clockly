@@ -122,15 +122,21 @@ export function ShiftFormPage() {
       if (workplace.travel_daily_cost != null) {
         setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
       }
+      if (workplace.meal_deduction_default != null) {
+        setMeal(String(workplace.meal_deduction_default));
+      }
     }
   }, [existing, workplaces, workplaceId]);
 
   function handleWorkplaceChange(newWorkplaceId: string) {
     setWorkplaceId(newWorkplaceId);
-    if (isEdit) return; // don't override a saved shift's own recorded travel cost
+    if (isEdit) return; // don't override a saved shift's own recorded travel/meal values
     const workplace = workplaces.find((w) => w.id === newWorkplaceId);
     if (workplace?.travel_daily_cost != null) {
       setTravel(String(Math.min(workplace.travel_daily_cost, DEFAULT_RATES.travel.dailyCap)));
+    }
+    if (workplace?.meal_deduction_default != null) {
+      setMeal(String(workplace.meal_deduction_default));
     }
   }
 
@@ -346,8 +352,8 @@ export function ShiftFormPage() {
               <Input label="ניכוי ארוחות (₪)" type="number" value={meal} onChange={(e) => setMeal(e.target.value)} />
             </div>
             <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
-              דמי הנסיעות מחושבים אוטומטית לפי עלות הנסיעה היומית שהוגדרה במקום העבודה
-              (עד לתקרה החוקית), וניתן לשנות לכל משמרת בנפרד.
+              דמי הנסיעות וניכוי הארוחות ממולאים אוטומטית לפי ההגדרות במקום העבודה (דמי
+              הנסיעות עד לתקרה החוקית), וניתן לשנות כל אחד מהם לכל משמרת בנפרד.
             </p>
             <Input label="הערות" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Card>

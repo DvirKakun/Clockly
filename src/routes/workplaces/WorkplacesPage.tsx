@@ -26,6 +26,7 @@ type FormState = {
   work_days_per_week: '5' | '6';
   start_date: string;
   travel_daily_cost: string;
+  meal_deduction_default: string;
 };
 
 const emptyForm: FormState = {
@@ -41,6 +42,7 @@ const emptyForm: FormState = {
   work_days_per_week: '6',
   start_date: '',
   travel_daily_cost: '',
+  meal_deduction_default: '',
 };
 
 function workplaceToForm(w: Workplace): FormState {
@@ -54,6 +56,7 @@ function workplaceToForm(w: Workplace): FormState {
     work_days_per_week: String(w.work_days_per_week) as '5' | '6',
     start_date: w.start_date ?? '',
     travel_daily_cost: w.travel_daily_cost != null ? String(w.travel_daily_cost) : '',
+    meal_deduction_default: w.meal_deduction_default != null ? String(w.meal_deduction_default) : '',
   };
 }
 
@@ -102,6 +105,7 @@ export function WorkplacesPage() {
       work_days_per_week: Number(form.work_days_per_week),
       start_date: form.start_date || null,
       travel_daily_cost: form.travel_daily_cost ? Number(form.travel_daily_cost) : null,
+      meal_deduction_default: form.meal_deduction_default ? Number(form.meal_deduction_default) : null,
     };
 
     try {
@@ -239,6 +243,20 @@ export function WorkplacesPage() {
                     עלות הנסיעה הזולה ביותר בתחבורה ציבורית ליום עבודה. ימולא אוטומטית בכל
                     משמרת חדשה (עד תקרה חוקית של ₪22.60), וניתן לשנות לכל משמרת בנפרד. אין
                     זכאות (למשל גרים פחות מ־500 מ&apos; מהעבודה)? השאירו ריק.
+                  </p>
+
+                  <Input
+                    label="ניכוי ארוחות קבוע (₪)"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={form.meal_deduction_default}
+                    onChange={(e) => setForm({ ...form, meal_deduction_default: e.target.value })}
+                  />
+                  <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                    אם במקום העבודה הזה מנוכה סכום קבוע עבור ארוחה בכל משמרת, אפשר להגדיר
+                    אותו כאן וימולא אוטומטית בכל משמרת חדשה (ניתן לשנות לכל משמרת בנפרד).
+                    לא רלוונטי? השאירו ריק.
                   </p>
 
                   {error && <p className="text-sm text-red-500">{error}</p>}

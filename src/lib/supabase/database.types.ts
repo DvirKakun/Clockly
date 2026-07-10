@@ -181,6 +181,7 @@ export type Database = {
           hourly_rate: number | null;
           id: string;
           is_archived: boolean;
+          meal_deduction_default: number | null;
           monthly_salary: number | null;
           name: string;
           standard_weekly_hours: number;
@@ -198,6 +199,7 @@ export type Database = {
           hourly_rate?: number | null;
           id?: string;
           is_archived?: boolean;
+          meal_deduction_default?: number | null;
           monthly_salary?: number | null;
           name: string;
           standard_weekly_hours?: number;
@@ -215,6 +217,7 @@ export type Database = {
           hourly_rate?: number | null;
           id?: string;
           is_archived?: boolean;
+          meal_deduction_default?: number | null;
           monthly_salary?: number | null;
           name?: string;
           standard_weekly_hours?: number;
