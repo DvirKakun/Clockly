@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
-import { useWorkplaces } from '@/hooks/useWorkplaces';
+import { useAllWorkplaces, useWorkplaces } from '@/hooks/useWorkplaces';
 import { useCreateShift, useCreateShifts, useDeleteShift, useShift, useUpdateShift, type ShiftFormValues } from '@/hooks/useShifts';
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
@@ -43,6 +43,9 @@ export function ShiftFormPage() {
   const isEdit = !!id;
 
   const { data: workplaces = [] } = useWorkplaces();
+  // Includes archived workplaces — needed so a shift that still belongs to a since-removed
+  // workplace can display/select it correctly instead of falling out of the picker entirely.
+  const { data: allWorkplaces = [] } = useAllWorkplaces();
   const createShift = useCreateShift();
   const createShifts = useCreateShifts();
   const updateShift = useUpdateShift();
@@ -82,7 +85,8 @@ export function ShiftFormPage() {
     [date, startTime, endTime, crossesMidnight]
   );
 
-  const selectedWorkplace = workplaces.find((w) => w.id === workplaceId);
+  const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
+  const isSelectedWorkplaceArchived = isEdit && !!selectedWorkplace?.is_archived;
 
   const occurrenceDates = useMemo(
     () => (repeat === 'weekly' && repeatUntil ? weeklyOccurrences(date, repeatUntil, MAX_RECURRING_OCCURRENCES) : []),
@@ -138,7 +142,12 @@ export function ShiftFormPage() {
         setMeal(String(workplace.meal_deduction_default));
       }
     }
-  }, [existing, workplaces, workplaceId]);
+    // workplaceId is deliberately excluded: this effect hydrates the form from `existing`/
+    // `workplaces` when they load, not on every subsequent local edit. Including it created a
+    // loop where picking a different workplace (or editing any other field) re-ran this effect
+    // and immediately overwrote the change back to the shift's originally saved values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing, workplaces]);
 
   function handleWorkplaceChange(newWorkplaceId: string) {
     setWorkplaceId(newWorkplaceId);
@@ -228,7 +237,15 @@ export function ShiftFormPage() {
                   {w.name}
                 </option>
               ))}
+              {isSelectedWorkplaceArchived && selectedWorkplace && (
+                <option value={selectedWorkplace.id}>{selectedWorkplace.name} (הוסר)</option>
+              )}
             </Select>
+            {isSelectedWorkplaceArchived && (
+              <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
+                מקום העבודה הזה הוסר. אפשר לבחור מקום עבודה אחר מהרשימה כדי לשייך את המשמרת אליו.
+              </p>
+            )}
 
             <Input label="תאריך" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required />
 
