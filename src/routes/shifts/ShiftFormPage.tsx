@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { useCreateShift, useDeleteShift, useShift, useUpdateShift } from '@/hooks/useShifts';
@@ -63,6 +64,7 @@ export function ShiftFormPage() {
   const [notes, setNotes] = useState('');
   const [breaks, setBreaks] = useState<BreakField[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Crossing midnight is a pure function of the two time fields — never a manual choice.
   const crossesMidnight = endTime !== '' && endTime <= startTime;
@@ -370,11 +372,23 @@ export function ShiftFormPage() {
             שמירה
           </Button>
           {isEdit && (
-            <Button type="button" variant="danger" fullWidth onClick={handleDelete}>
+            <Button type="button" variant="danger" fullWidth onClick={() => setConfirmDelete(true)}>
               מחיקת משמרת
             </Button>
           )}
         </form>
+
+        <ConfirmDialog
+          open={confirmDelete}
+          title="מחיקת משמרת"
+          message="למחוק את המשמרת הזו? לא ניתן לשחזר משמרת שנמחקה."
+          confirmLabel="מחיקה"
+          onConfirm={() => {
+            setConfirmDelete(false);
+            handleDelete();
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       </div>
     </PageTransition>
   );
