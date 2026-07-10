@@ -24,6 +24,13 @@ const SettingsPage = lazy(() => import('@/routes/settings/SettingsPage').then((m
 const RightsPage = lazy(() => import('@/routes/rights/RightsPage').then((m) => ({ default: m.RightsPage })));
 const ReportsPage = lazy(() => import('@/routes/reports/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 
+// Warm the two first-screen route chunks while the splash holds during auth init. Without this
+// the Suspense fallback below renders a *second* SplashScreen the moment auth resolves (the
+// chunk isn't downloaded yet), which reads as the splash flashing/re-rendering. These imports
+// share Vite's module cache with the lazy() calls above, so nothing is fetched twice.
+void import('@/routes/dashboard/DashboardPage');
+void import('@/routes/auth/LoginPage');
+
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const session = useAuthStore((s) => s.session);
   if (session) return <Navigate to="/" replace />;
