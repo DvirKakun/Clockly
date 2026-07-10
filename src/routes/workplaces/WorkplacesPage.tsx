@@ -158,12 +158,8 @@ export function WorkplacesPage() {
                         key={c}
                         type="button"
                         onClick={() => setForm({ ...form, color: c })}
-                        className="flex h-11 w-11 items-center justify-center rounded-full ring-offset-2 dark:ring-offset-[#16171d]"
-                        style={{
-                          backgroundColor: c,
-                          boxShadow: form.color === c ? '0 0 0 2px currentColor' : undefined,
-                          color: 'var(--color-brand-500)',
-                        }}
+                        className="flex h-11 w-11 items-center justify-center rounded-full"
+                        style={{ backgroundColor: c }}
                         aria-label={`צבע ${c}${form.color === c ? ' (נבחר)' : ''}`}
                       >
                         {form.color === c && <Check size={18} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />}
