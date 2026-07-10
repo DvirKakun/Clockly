@@ -207,6 +207,7 @@ export function WorkplacesPage() {
                   <Input
                     label="תאריך תחילת עבודה"
                     type="date"
+                    dir="ltr"
                     value={form.start_date}
                     onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                   />
