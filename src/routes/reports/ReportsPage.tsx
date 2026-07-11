@@ -7,11 +7,13 @@ import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { useShiftsForRange } from '@/hooks/useShifts';
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
+import { taxProfileRowToTaxProfile } from '@/lib/calc/adapters';
+import { expectedForWorkplace } from '@/lib/payslipCompare';
 import { formatCurrency } from '@/lib/format';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 import { MONTH_NAMES_HE } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
-import { PayslipCompareCard } from './PayslipCompareCard';
+import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
 
 export function ReportsPage() {
   const now = new Date();
@@ -39,6 +41,18 @@ export function ReportsPage() {
   }, [workplaces, shifts, taxProfile]);
 
   const isLoading = loadingWorkplaces || loadingShifts;
+
+  // Per-workplace payslip estimates for the comparison card — one payslip per employer.
+  const payslipWorkplaces = useMemo<PayslipWorkplace[]>(() => {
+    if (!summary || !taxProfile) return [];
+    const profile = taxProfileRowToTaxProfile(taxProfile);
+    return summary.byWorkplace.map(({ workplace, gross }) => ({
+      id: workplace.id,
+      name: workplace.name,
+      color: workplace.color,
+      expected: expectedForWorkplace(gross, profile),
+    }));
+  }, [summary, taxProfile]);
 
   function changeMonth(delta: 1 | -1) {
     setCursor((c) => {
@@ -193,7 +207,7 @@ export function ReportsPage() {
             ))}
           </div>
           {/* Outside .print-report so it stays on screen only, not in the exported PDF. */}
-          <PayslipCompareCard summary={summary} year={cursor.year} month={cursor.month + 1} />
+          <PayslipCompareCard workplaces={payslipWorkplaces} year={cursor.year} month={cursor.month + 1} />
           </>
         )}
       </div>

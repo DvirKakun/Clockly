@@ -45,9 +45,9 @@ export type Database = {
         Row: {
           created_at: string;
           gross: number | null;
+          health_tax: number | null;
           id: string;
           income_tax: number | null;
-          health_tax: number | null;
           month: number;
           national_insurance: number | null;
           net: number | null;
@@ -55,14 +55,15 @@ export type Database = {
           travel: number | null;
           updated_at: string;
           user_id: string;
+          workplace_id: string;
           year: number;
         };
         Insert: {
           created_at?: string;
           gross?: number | null;
+          health_tax?: number | null;
           id?: string;
           income_tax?: number | null;
-          health_tax?: number | null;
           month: number;
           national_insurance?: number | null;
           net?: number | null;
@@ -70,14 +71,15 @@ export type Database = {
           travel?: number | null;
           updated_at?: string;
           user_id: string;
+          workplace_id: string;
           year: number;
         };
         Update: {
           created_at?: string;
           gross?: number | null;
+          health_tax?: number | null;
           id?: string;
           income_tax?: number | null;
-          health_tax?: number | null;
           month?: number;
           national_insurance?: number | null;
           net?: number | null;
@@ -85,6 +87,7 @@ export type Database = {
           travel?: number | null;
           updated_at?: string;
           user_id?: string;
+          workplace_id?: string;
           year?: number;
         };
         Relationships: [];
