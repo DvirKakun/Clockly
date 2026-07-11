@@ -1,4 +1,5 @@
-import type { MonthSummary } from '@/lib/calc/monthSummary';
+import { computeNetPay } from '@/lib/calc/netEngine';
+import type { MonthlyGrossResult, TaxProfile } from '@/lib/calc/types';
 
 /** The user-entered payslip figures (each optional — partial entry is allowed). National
  * insurance and health tax are separate, matching how an Israeli payslip breaks them out. */
@@ -11,6 +12,9 @@ export interface PayslipFigures {
   pension: number | null;
   travel: number | null;
 }
+
+/** Clockly's estimate for a single workplace's payslip — every line has a value. */
+export type PayslipExpected = Record<keyof PayslipFigures, number>;
 
 export type ComparisonStatus = 'match' | 'off' | 'missing';
 
@@ -38,23 +42,41 @@ function statusFor(expected: number, actual: number | null): ComparisonStatus {
 }
 
 /**
- * Line-by-line comparison of an entered payslip against Clockly's estimate for the same period.
- * The estimate side comes straight from `computeMonthSummary`; deductions (tax, social security,
- * pension) are compared as the positive amounts a payslip shows.
+ * Clockly's expected payslip figures for one workplace, computed "as if this were the person's
+ * only income": gross and travel come straight from that workplace's monthly gross, and the tax /
+ * national-insurance / health / pension lines come from running the net calc on just that
+ * workplace's taxable income. For someone with a single job this is exact; for multiple jobs each
+ * employer's actual withholding depends on the worker's tax coordination (תיאום מס), so the tax
+ * lines are an estimate — the UI says so.
  */
-export function buildPayslipComparison(summary: MonthSummary, actual: PayslipFigures): ComparisonRow[] {
-  const rows: { key: keyof PayslipFigures; label: string; expected: number }[] = [
-    { key: 'gross', label: 'ברוטו', expected: summary.totalGross },
-    { key: 'income_tax', label: 'מס הכנסה', expected: summary.net.incomeTax },
-    { key: 'national_insurance', label: 'ביטוח לאומי', expected: summary.net.nationalInsurance },
-    { key: 'health_tax', label: 'דמי בריאות', expected: summary.net.healthTax },
-    { key: 'pension', label: 'פנסיה', expected: summary.net.pensionEmployee },
-    { key: 'travel', label: 'נסיעות', expected: summary.totalTravelReimbursement },
-    { key: 'net', label: 'נטו לתשלום', expected: summary.takeHomePay },
+export function expectedForWorkplace(gross: MonthlyGrossResult, taxProfile: TaxProfile): PayslipExpected {
+  const net = computeNetPay(gross.taxableGross, taxProfile);
+  return {
+    gross: gross.totalGross,
+    income_tax: net.incomeTax,
+    national_insurance: net.nationalInsurance,
+    health_tax: net.healthTax,
+    pension: net.pensionEmployee,
+    travel: gross.travelReimbursement,
+    net: net.netPay + gross.travelReimbursement,
+  };
+}
+
+/** Line-by-line comparison of one entered payslip against Clockly's estimate for that workplace. */
+export function buildPayslipComparison(expected: PayslipExpected, actual: PayslipFigures): ComparisonRow[] {
+  const rows: { key: keyof PayslipFigures; label: string }[] = [
+    { key: 'gross', label: 'ברוטו' },
+    { key: 'income_tax', label: 'מס הכנסה' },
+    { key: 'national_insurance', label: 'ביטוח לאומי' },
+    { key: 'health_tax', label: 'דמי בריאות' },
+    { key: 'pension', label: 'פנסיה' },
+    { key: 'travel', label: 'נסיעות' },
+    { key: 'net', label: 'נטו לתשלום' },
   ];
 
-  return rows.map(({ key, label, expected }) => {
+  return rows.map(({ key, label }) => {
     const a = actual[key];
-    return { key, label, expected, actual: a, diff: a == null ? null : a - expected, status: statusFor(expected, a) };
+    const exp = expected[key];
+    return { key, label, expected: exp, actual: a, diff: a == null ? null : a - exp, status: statusFor(exp, a) };
   });
 }

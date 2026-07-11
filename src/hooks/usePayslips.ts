@@ -6,18 +6,21 @@ import { useAuthStore } from '@/store/authStore';
 
 export type PayslipRow = Database['public']['Tables']['payslips']['Row'];
 
-/** `month` is 1-12 (calendar), unlike the app's 0-indexed cursor — callers convert at the boundary. */
-export function usePayslip(year: number, month: number) {
+/**
+ * A payslip is per-workplace: someone with two jobs gets two payslips a month. `month` is 1-12
+ * (calendar), unlike the app's 0-indexed cursor — callers convert at the boundary.
+ */
+export function usePayslip(workplaceId: string | undefined, year: number, month: number) {
   const userId = useAuthStore((s) => s.user?.id);
 
   return useQuery({
-    queryKey: ['payslip', userId, year, month],
-    enabled: !!userId,
+    queryKey: ['payslip', userId, workplaceId, year, month],
+    enabled: !!userId && !!workplaceId,
     queryFn: async () => {
-      // RLS scopes this to the signed-in user, so (year, month) uniquely identifies their payslip.
       const { data, error } = await supabase
         .from('payslips')
         .select('*')
+        .eq('workplace_id', workplaceId!)
         .eq('year', year)
         .eq('month', month)
         .maybeSingle();
@@ -32,20 +35,26 @@ export function useUpsertPayslip() {
   const userId = useAuthStore((s) => s.user?.id);
 
   return useMutation({
-    mutationFn: async ({ year, month, ...values }: PayslipFigures & { year: number; month: number }) => {
+    mutationFn: async ({
+      workplaceId,
+      year,
+      month,
+      ...values
+    }: PayslipFigures & { workplaceId: string; year: number; month: number }) => {
       if (!userId) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('payslips')
         .upsert(
-          { user_id: userId, year, month, ...values, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,year,month' }
+          { user_id: userId, workplace_id: workplaceId, year, month, ...values, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,workplace_id,year,month' }
         )
         .select()
         .single();
       if (error) throw error;
       return data as PayslipRow;
     },
-    onSuccess: (row) => queryClient.invalidateQueries({ queryKey: ['payslip', userId, row.year, row.month] }),
+    onSuccess: (row) =>
+      queryClient.invalidateQueries({ queryKey: ['payslip', userId, row.workplace_id, row.year, row.month] }),
   });
 }
 
@@ -54,11 +63,16 @@ export function useDeletePayslip() {
   const userId = useAuthStore((s) => s.user?.id);
 
   return useMutation({
-    mutationFn: async ({ year, month }: { year: number; month: number }) => {
-      const { error } = await supabase.from('payslips').delete().eq('year', year).eq('month', month);
+    mutationFn: async ({ workplaceId, year, month }: { workplaceId: string; year: number; month: number }) => {
+      const { error } = await supabase
+        .from('payslips')
+        .delete()
+        .eq('workplace_id', workplaceId)
+        .eq('year', year)
+        .eq('month', month);
       if (error) throw error;
     },
-    onSuccess: (_data, { year, month }) =>
-      queryClient.invalidateQueries({ queryKey: ['payslip', userId, year, month] }),
+    onSuccess: (_data, { workplaceId, year, month }) =>
+      queryClient.invalidateQueries({ queryKey: ['payslip', userId, workplaceId, year, month] }),
   });
 }
