@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Info, Moon, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -7,8 +7,16 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
-import { useAllWorkplaces, useWorkplaces } from '@/hooks/useWorkplaces';
-import { useCreateShift, useCreateShifts, useDeleteShift, useShift, useUpdateShift, type ShiftFormValues } from '@/hooks/useShifts';
+import { useAllWorkplaces, useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import {
+  useCreateShift,
+  useCreateShifts,
+  useDeleteShift,
+  useShift,
+  useUpdateShift,
+  type ShiftFormValues,
+  type ShiftWithBreaks,
+} from '@/hooks/useShifts';
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
@@ -45,37 +53,108 @@ function travelDefaultFor(workplace: { travel_daily_cost: number | null }): numb
     : DEFAULT_RATES.travel.dailyCap;
 }
 
+/**
+ * Fetches the shift being edited (and the workplaces) and only mounts the form once its data is
+ * ready, so the fields initialise from the real shift instead of flashing the "new shift" defaults
+ * (today's date, 09:00–17:00). In the common path the shift is already in the calendar/list cache
+ * (see useShift's initialData) and the workplaces are loaded, so this resolves without a loader.
+ */
 export function ShiftFormPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { id } = useParams();
   const isEdit = !!id;
+  const navigate = useNavigate();
 
-  const { data: workplaces = [] } = useWorkplaces();
+  const { data: existing } = useShift(id);
+  const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
   // Includes archived workplaces — needed so a shift that still belongs to a since-removed
   // workplace can display/select it correctly instead of falling out of the picker entirely.
   const { data: allWorkplaces = [] } = useAllWorkplaces();
+
+  const notReady = (isEdit && !existing) || (!isEdit && loadingWorkplaces);
+  if (notReady) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col gap-4">
+          <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+          <p className="py-12 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  return <ShiftForm key={id ?? 'new'} id={id} existing={existing} workplaces={workplaces} allWorkplaces={allWorkplaces} />;
+}
+
+function FormHeader({ isEdit, onBack }: { isEdit: boolean; onBack: () => void }) {
+  return (
+    <header className="flex items-center gap-3 pt-1">
+      <button
+        onClick={onBack}
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
+        aria-label="חזרה"
+      >
+        <ChevronRight size={18} />
+      </button>
+      <h1 className="text-lg font-bold">{isEdit ? 'עריכת משמרת' : 'משמרת חדשה'}</h1>
+    </header>
+  );
+}
+
+function ShiftForm({
+  id,
+  existing,
+  workplaces,
+  allWorkplaces,
+}: {
+  id: string | undefined;
+  existing: ShiftWithBreaks | undefined;
+  workplaces: Workplace[];
+  allWorkplaces: Workplace[];
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isEdit = !!id;
+
   const createShift = useCreateShift();
   const createShifts = useCreateShifts();
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
 
-  const { data: existing } = useShift(id);
-
   // Coming from the calendar view's "add shift" action for a selected day pre-fills that date.
   const initialDate = (location.state as { date?: string } | null)?.date;
+  // For a new shift the form defaults to the first workplace and pulls its travel/meal defaults.
+  const defaultWorkplace = existing ? undefined : workplaces[0];
 
-  const [workplaceId, setWorkplaceId] = useState('');
-  const [date, setDate] = useState(initialDate ?? todayIso());
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('17:00');
-  const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>('auto');
-  const [bonuses, setBonuses] = useState('0');
-  const [tips, setTips] = useState('0');
-  const [travel, setTravel] = useState('0');
-  const [meal, setMeal] = useState('0');
-  const [notes, setNotes] = useState('');
-  const [breaks, setBreaks] = useState<BreakField[]>([]);
+  // State is initialised straight from the loaded shift (or the new-shift defaults). This component
+  // only mounts once that data is available (its parent gates on loading), so there's no separate
+  // hydration step and therefore no frame where stale/default values are shown.
+  const [workplaceId, setWorkplaceId] = useState(existing?.workplace_id ?? defaultWorkplace?.id ?? '');
+  const [date, setDate] = useState(existing?.date ?? initialDate ?? todayIso());
+  const [startTime, setStartTime] = useState(existing ? existing.start_time.slice(0, 5) : '09:00');
+  const [endTime, setEndTime] = useState(existing ? (existing.end_time?.slice(0, 5) ?? '17:00') : '17:00');
+  const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>(existing ? (existing.day_type as DayType) : 'auto');
+  const [bonuses, setBonuses] = useState(existing ? String(existing.bonuses) : '0');
+  const [tips, setTips] = useState(existing ? String(existing.tips) : '0');
+  const [travel, setTravel] = useState(
+    existing
+      ? String(existing.travel_reimbursement)
+      : defaultWorkplace
+        ? String(travelDefaultFor(defaultWorkplace))
+        : '0'
+  );
+  const [meal, setMeal] = useState(
+    existing
+      ? String(existing.meal_deduction)
+      : defaultWorkplace?.meal_deduction_default != null
+        ? String(defaultWorkplace.meal_deduction_default)
+        : '0'
+  );
+  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const [breaks, setBreaks] = useState<BreakField[]>(
+    existing
+      ? existing.breaks.map((b) => ({ start_time: b.start_time.slice(0, 5), end_time: b.end_time.slice(0, 5), is_paid: b.is_paid }))
+      : []
+  );
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -126,35 +205,6 @@ export function ShiftFormPage() {
     );
     return result;
   }, [dayTypeChoice, straddlesShabbatBoundary, selectedWorkplace, date, startTime, endTime, crossesMidnight, breaks]);
-
-  useEffect(() => {
-    if (existing) {
-      setWorkplaceId(existing.workplace_id);
-      setDate(existing.date);
-      setStartTime(existing.start_time.slice(0, 5));
-      setEndTime(existing.end_time?.slice(0, 5) ?? '17:00');
-      // Preserve whatever was already saved rather than silently reclassifying past shifts.
-      setDayTypeChoice(existing.day_type as DayType);
-      setBonuses(String(existing.bonuses));
-      setTips(String(existing.tips));
-      setTravel(String(existing.travel_reimbursement));
-      setMeal(String(existing.meal_deduction));
-      setNotes(existing.notes ?? '');
-      setBreaks(existing.breaks.map((b) => ({ start_time: b.start_time.slice(0, 5), end_time: b.end_time.slice(0, 5), is_paid: b.is_paid })));
-    } else if (workplaces.length > 0 && !workplaceId) {
-      const workplace = workplaces[0];
-      setWorkplaceId(workplace.id);
-      setTravel(String(travelDefaultFor(workplace)));
-      if (workplace.meal_deduction_default != null) {
-        setMeal(String(workplace.meal_deduction_default));
-      }
-    }
-    // workplaceId is deliberately excluded: this effect hydrates the form from `existing`/
-    // `workplaces` when they load, not on every subsequent local edit. Including it created a
-    // loop where picking a different workplace (or editing any other field) re-ran this effect
-    // and immediately overwrote the change back to the shift's originally saved values.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing, workplaces]);
 
   function handleWorkplaceChange(newWorkplaceId: string) {
     setWorkplaceId(newWorkplaceId);
@@ -225,16 +275,7 @@ export function ShiftFormPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center gap-3 pt-1">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חזרה"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <h1 className="text-lg font-bold">{isEdit ? 'עריכת משמרת' : 'משמרת חדשה'}</h1>
-        </header>
+        <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">
