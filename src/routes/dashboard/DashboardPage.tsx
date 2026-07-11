@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Clock, LogIn, LogOut, Shield, FileText } from 'lucide-react';
+import { ChevronRight, Clock, LogIn, LogOut, Shield, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { useWorkplaces } from '@/hooks/useWorkplaces';
 import { useShiftsForRange, useClockIn, useClockOut, useOpenShift } from '@/hooks/useShifts';
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { formatCurrency } from '@/lib/format';
-import { MONTH_NAMES_HE as monthNames } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 
 export function DashboardPage() {
@@ -47,32 +47,18 @@ export function DashboardPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-5">
-        <header className="flex items-center justify-between pt-1">
-          <button
-            onClick={() => setCursor((c) => (c.month === 0 ? { year: c.year - 1, month: 11 } : { ...c, month: c.month - 1 }))}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש קודם"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <div className="text-center">
-            <h1 className="text-lg font-bold">
-              {monthNames[cursor.month]} {cursor.year}
-            </h1>
-            {startDay !== 1 && (
-              <p className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+        <MonthNavigator
+          year={cursor.year}
+          month={cursor.month}
+          onChange={(year, month) => setCursor({ year, month })}
+          subLabel={
+            startDay !== 1 ? (
+              <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
                 {payPeriodRangeLabel(period)}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => setCursor((c) => (c.month === 11 ? { year: c.year + 1, month: 0 } : { ...c, month: c.month + 1 }))}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש הבא"
-          >
-            <ChevronLeft size={18} />
-          </button>
-        </header>
+              </span>
+            ) : undefined
+          }
+        />
 
         {workplaces.length > 0 && (
           <ClockCard

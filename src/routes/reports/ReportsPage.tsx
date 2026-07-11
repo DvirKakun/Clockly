@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, ChevronLeft, FileSpreadsheet, Printer, FileText } from 'lucide-react';
+import { FileSpreadsheet, Printer, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -13,6 +13,7 @@ import { formatCurrency } from '@/lib/format';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 import { MONTH_NAMES_HE } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
+import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
 
 export function ReportsPage() {
@@ -54,15 +55,6 @@ export function ReportsPage() {
     }));
   }, [summary, taxProfile]);
 
-  function changeMonth(delta: 1 | -1) {
-    setCursor((c) => {
-      const m = c.month + delta;
-      if (m < 0) return { year: c.year - 1, month: 11 };
-      if (m > 11) return { year: c.year + 1, month: 0 };
-      return { ...c, month: m };
-    });
-  }
-
   async function handleExportExcel() {
     if (!summary) return;
     setExporting(true);
@@ -83,32 +75,20 @@ export function ReportsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between pt-1">
-          <button
-            onClick={() => changeMonth(-1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש קודם"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <h1 className="text-lg font-bold">דוחות וייצוא</h1>
-          <button
-            onClick={() => changeMonth(1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש הבא"
-          >
-            <ChevronLeft size={18} />
-          </button>
-        </header>
+        <h1 className="pt-1 text-center text-lg font-bold">דוחות וייצוא</h1>
 
-        <div className="-mt-2 text-center">
-          <p className="text-sm text-black/50 dark:text-white/50">{monthLabel}</p>
-          {startDay !== 1 && (
-            <p className="text-xs text-black/40 dark:text-white/40" dir="ltr">
-              {payPeriodRangeLabel(period)}
-            </p>
-          )}
-        </div>
+        <MonthNavigator
+          year={cursor.year}
+          month={cursor.month}
+          onChange={(year, month) => setCursor({ year, month })}
+          subLabel={
+            startDay !== 1 ? (
+              <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+                {payPeriodRangeLabel(period)}
+              </span>
+            ) : undefined
+          }
+        />
 
         <div className="flex gap-2">
           <Button variant="secondary" fullWidth onClick={handleExportExcel} disabled={!summary || exporting}>

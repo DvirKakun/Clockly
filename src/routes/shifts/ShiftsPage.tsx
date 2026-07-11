@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, CalendarClock, Calendar, List, Plus } from 'lucide-react';
+import { CalendarClock, Calendar, List, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { PageTransition } from '@/components/layout/PageTransition';
+import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { useShiftsForRange, type ShiftWithBreaks } from '@/hooks/useShifts';
 import { useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
@@ -13,7 +14,6 @@ import { getMonthGridDays } from '@/lib/calendarGrid';
 import {
   todayIso,
   monthRange,
-  MONTH_NAMES_HE as monthNames,
   WEEKDAY_NAMES_HE as weekdayNames,
   WEEKDAY_SHORT_HE as weekdayShort,
 } from '@/lib/date';
@@ -56,40 +56,19 @@ export function ShiftsPage() {
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
   }
 
-  function changeMonth(delta: 1 | -1) {
-    setSelectedDate(null);
-    setCursor((c) => {
-      const m = c.month + delta;
-      if (m < 0) return { year: c.year - 1, month: 11 };
-      if (m > 11) return { year: c.year + 1, month: 0 };
-      return { ...c, month: m };
-    });
-  }
-
   const selectedDayShifts = selectedDate ? (shiftsByDate.get(selectedDate) ?? []) : [];
 
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between pt-1">
-          <button
-            onClick={() => changeMonth(-1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש קודם"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <h1 className="text-lg font-bold">
-            {monthNames[cursor.month]} {cursor.year}
-          </h1>
-          <button
-            onClick={() => changeMonth(1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 dark:bg-white/10"
-            aria-label="חודש הבא"
-          >
-            <ChevronLeft size={18} />
-          </button>
-        </header>
+        <MonthNavigator
+          year={cursor.year}
+          month={cursor.month}
+          onChange={(year, month) => {
+            setSelectedDate(null);
+            setCursor({ year, month });
+          }}
+        />
 
         <div className="flex justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
           <button
