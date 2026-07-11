@@ -96,11 +96,8 @@ export interface NetResult {
   creditPointsValue: number;
   incomeTaxBeforeCredits: number;
   incomeTax: number;
-  socialSecurity: number;
-  socialSecurityBreakdown: {
-    belowThreshold: number;
-    aboveThreshold: number;
-  };
+  nationalInsurance: number;
+  healthTax: number;
   pensionEmployee: number;
   kerenHishtalmutEmployee: number;
   totalDeductions: number;

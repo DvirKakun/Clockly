@@ -127,7 +127,8 @@ export function ReportsPage() {
               <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">סיכום</h2>
               <ReportRow label="סה&quot;כ ברוטו" value={summary.totalGross} />
               <ReportRow label="מס הכנסה" value={-summary.net.incomeTax} />
-              <ReportRow label="ביטוח לאומי ובריאות" value={-summary.net.socialSecurity} />
+              <ReportRow label="ביטוח לאומי" value={-summary.net.nationalInsurance} />
+              <ReportRow label="דמי בריאות" value={-summary.net.healthTax} />
               {summary.net.pensionEmployee > 0 && <ReportRow label="פנסיה" value={-summary.net.pensionEmployee} />}
               {summary.net.kerenHishtalmutEmployee > 0 && (
                 <ReportRow label="קרן השתלמות" value={-summary.net.kerenHishtalmutEmployee} />

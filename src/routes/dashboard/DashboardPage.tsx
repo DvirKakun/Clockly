@@ -111,7 +111,8 @@ export function DashboardPage() {
             <Card>
               <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">פירוט ניכויים</h2>
               <DeductionRow label="מס הכנסה" value={summary.net.incomeTax} />
-              <DeductionRow label="ביטוח לאומי ובריאות" value={summary.net.socialSecurity} />
+              <DeductionRow label="ביטוח לאומי" value={summary.net.nationalInsurance} />
+              <DeductionRow label="דמי בריאות" value={summary.net.healthTax} />
               {summary.net.pensionEmployee > 0 && <DeductionRow label="פנסיה" value={summary.net.pensionEmployee} />}
               {summary.net.kerenHishtalmutEmployee > 0 && (
                 <DeductionRow label="קרן השתלמות" value={summary.net.kerenHishtalmutEmployee} />

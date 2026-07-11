@@ -25,20 +25,28 @@ export function computeCreditPoints(taxProfile: TaxProfile, rates: LegalRatesCon
   return points;
 }
 
+/**
+ * Employee national-insurance and health-tax contributions. Israeli payslips show these as two
+ * separate deductions, so they're returned split — but `total` is computed from the combined
+ * per-tier rate (unchanged from before the split) and `healthTax` is derived as `total − NI`,
+ * so the two always sum to exactly `total` and net-pay math is bit-identical.
+ */
 export function computeSocialSecurity(
   taxableIncome: number,
   rates: LegalRatesConfig = DEFAULT_RATES
-): { belowThreshold: number; aboveThreshold: number; total: number } {
-  const { lowerThreshold, upperCeiling, employeeRateBelowThreshold, employeeRateAboveThreshold } =
+): { nationalInsurance: number; healthTax: number; total: number } {
+  const { lowerThreshold, upperCeiling, employeeRateBelowThreshold, employeeRateAboveThreshold, breakdown } =
     rates.socialSecurity;
   const cappedIncome = Math.min(taxableIncome, upperCeiling);
   const belowAmount = Math.min(cappedIncome, lowerThreshold);
   const aboveAmount = Math.max(0, cappedIncome - lowerThreshold);
 
-  const belowThreshold = belowAmount * employeeRateBelowThreshold;
-  const aboveThreshold = aboveAmount * employeeRateAboveThreshold;
+  const total = belowAmount * employeeRateBelowThreshold + aboveAmount * employeeRateAboveThreshold;
+  const nationalInsurance =
+    belowAmount * breakdown.belowThreshold.nationalInsurance + aboveAmount * breakdown.aboveThreshold.nationalInsurance;
+  const healthTax = total - nationalInsurance;
 
-  return { belowThreshold, aboveThreshold, total: belowThreshold + aboveThreshold };
+  return { nationalInsurance, healthTax, total };
 }
 
 export function computePensionEmployee(
@@ -90,8 +98,8 @@ export function computeNetPay(
     creditPointsValue,
     incomeTaxBeforeCredits,
     incomeTax,
-    socialSecurity: ss.total,
-    socialSecurityBreakdown: { belowThreshold: ss.belowThreshold, aboveThreshold: ss.aboveThreshold },
+    nationalInsurance: ss.nationalInsurance,
+    healthTax: ss.healthTax,
     pensionEmployee,
     kerenHishtalmutEmployee,
     totalDeductions,
