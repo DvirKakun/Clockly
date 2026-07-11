@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router-dom';
 
 /**
@@ -9,6 +9,10 @@ import { useLocation, useNavigationType } from 'react-router-dom';
  *  - Back/forward (POP) restores the exact position you left that page at, so returning to a
  *    long list keeps your place.
  *
+ * Positions are recorded *continuously while you scroll* (keyed by history entry), not read at
+ * navigation time — because navigating from a tall list to a short form shrinks the document and
+ * the browser clamps window.scrollY before we could read it, which would save the wrong offset.
+ *
  * React Router's built-in <ScrollRestoration> only works with the data router; this is the
  * hand-rolled equivalent for the classic <BrowserRouter> the app uses.
  */
@@ -16,21 +20,25 @@ export function ScrollManager() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const positions = useRef(new Map<string, number>());
-  const lastKey = useRef(location.key);
+  const activeKey = useRef(location.key);
 
-  // Let us drive scrolling ourselves instead of the browser restoring its own remembered offset.
   useLayoutEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   }, []);
 
+  // Record the active entry's scroll on every scroll event. Saved synchronously (a Map write is
+  // cheap) so the user's real resting position is captured before any navigation can clamp it.
+  useEffect(() => {
+    const onScroll = () => positions.current.set(activeKey.current, window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useLayoutEffect(() => {
-    // Record where the page we're leaving was scrolled to. This runs the instant the route
-    // changes, while that page is still on screen (AnimatePresence keeps it during its exit
-    // animation), so window.scrollY is still its real position — no scroll listener needed.
-    if (lastKey.current !== location.key) {
-      positions.current.set(lastKey.current, window.scrollY);
-      lastKey.current = location.key;
-    }
+    // Point future scroll writes at the incoming entry *first*. When the incoming page is shorter,
+    // the browser clamps scrollY as the document shrinks and fires a scroll event; by now that
+    // lands on the new entry, leaving the page we left with its true saved offset intact.
+    activeKey.current = location.key;
 
     const target = navigationType === 'POP' ? (positions.current.get(location.key) ?? 0) : 0;
 
@@ -39,10 +47,9 @@ export function ScrollManager() {
       return;
     }
 
-    // Restoring on Back: the incoming (taller) page may not be mounted yet because the outgoing
-    // one is still animating out, so the document can be too short to reach `target` for a few
-    // frames. Re-apply each frame until it fits (or a short budget elapses, if the page is
-    // genuinely shorter now — e.g. fewer list items — in which case we settle at its bottom).
+    // Restoring on Back: the incoming (taller) page may not be laid out yet, so the document can be
+    // too short to reach `target` for a few frames. Re-apply each frame until it fits (or a short
+    // budget elapses, if the page is genuinely shorter now — in which case we settle at its bottom).
     let raf = 0;
     let frames = 0;
     const restore = () => {
