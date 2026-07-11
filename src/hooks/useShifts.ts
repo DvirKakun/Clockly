@@ -45,6 +45,8 @@ export function useShiftsForRange(startDate: string, endDate: string, enabled = 
 }
 
 export function useShift(id: string | undefined) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ['shift', id],
     enabled: !!id,
@@ -52,6 +54,27 @@ export function useShift(id: string | undefined) {
       const { data, error } = await supabase.from('shifts').select('*, breaks(*)').eq('id', id!).single();
       if (error) throw error;
       return data as ShiftWithBreaks;
+    },
+    // Opening a shift from the calendar/list is instant: the row (with its breaks) is already in
+    // a cached range query, so seed the form from there instead of flashing its blank defaults
+    // while a fresh fetch runs. initialDataUpdatedAt carries the source query's age so a genuinely
+    // stale cache still refetches on mount rather than being pinned as fresh.
+    initialData: () => {
+      if (!id) return undefined;
+      for (const [, list] of queryClient.getQueriesData<ShiftWithBreaks[]>({ queryKey: ['shifts'] })) {
+        const found = list?.find((s) => s.id === id);
+        if (found) return found;
+      }
+      return undefined;
+    },
+    initialDataUpdatedAt: () => {
+      if (!id) return undefined;
+      let latest: number | undefined;
+      for (const query of queryClient.getQueryCache().findAll({ queryKey: ['shifts'] })) {
+        const list = query.state.data as ShiftWithBreaks[] | undefined;
+        if (list?.some((s) => s.id === id)) latest = Math.max(latest ?? 0, query.state.dataUpdatedAt);
+      }
+      return latest;
     },
   });
 }
@@ -156,9 +179,52 @@ export function useUpdateShift() {
         }
       }
     },
-    onSuccess: () => {
+    // Optimistically patch the edited shift into the detail cache and every cached range list, so
+    // the calendar/list and the edit form reflect the change immediately — and, just as important,
+    // reopening the form never shows the pre-edit values while the refetch is still in flight.
+    onMutate: async ({ id, breaks, ...values }) => {
+      await queryClient.cancelQueries({ queryKey: ['shift', id] });
+      await queryClient.cancelQueries({ queryKey: ['shifts'] });
+
+      const previousDetail = queryClient.getQueryData<ShiftWithBreaks>(['shift', id]);
+      const previousLists = queryClient.getQueriesData<ShiftWithBreaks[]>({ queryKey: ['shifts'] });
+
+      const patch = (shift: ShiftWithBreaks): ShiftWithBreaks => ({
+        ...shift,
+        ...values,
+        breaks: breaks
+          ? breaks.map((b, i) => ({
+              id: `optimistic-${i}`,
+              shift_id: id,
+              start_time: b.start_time,
+              end_time: b.end_time,
+              is_paid: b.is_paid,
+              created_at: new Date().toISOString(),
+            }))
+          : shift.breaks,
+      });
+
+      if (previousDetail) queryClient.setQueryData(['shift', id], patch(previousDetail));
+      for (const [key, list] of previousLists) {
+        if (!list) continue;
+        queryClient.setQueryData(
+          key,
+          list.map((s) => (s.id === id ? patch(s) : s))
+        );
+      }
+
+      return { previousDetail, previousLists };
+    },
+    onError: (_err, { id }, context) => {
+      if (!context) return;
+      if (context.previousDetail) queryClient.setQueryData(['shift', id], context.previousDetail);
+      for (const [key, list] of context.previousLists) queryClient.setQueryData(key, list);
+    },
+    // Reconcile with the server (server-computed columns, real break ids) once the write lands.
+    onSettled: (_data, _err, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
       queryClient.invalidateQueries({ queryKey: ['open-shift'] });
+      queryClient.invalidateQueries({ queryKey: ['shift', id] });
     },
   });
 }
