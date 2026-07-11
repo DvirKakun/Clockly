@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useAuthStore } from '@/store/authStore';
 import { SplashScreen } from '@/components/layout/SplashScreen';
+import { ScrollManager } from '@/components/layout/ScrollManager';
 import { ProtectedLayout } from '@/routes/ProtectedLayout';
 
 const LoginPage = lazy(() => import('@/routes/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
@@ -45,6 +46,7 @@ export default function App() {
 
   return (
     <Suspense fallback={<SplashScreen />}>
+      <ScrollManager />
       <Routes>
         <Route
           path="/login"
