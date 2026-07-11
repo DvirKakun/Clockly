@@ -24,8 +24,10 @@ export interface ComparisonRow {
 // A payslip and an estimate rarely agree to the shekel (employer rounding, a bonus that wasn't
 // logged, a tax-point nuance), so treat anything within this band as a match rather than crying
 // wolf on every row. Whichever is larger of a flat floor and a small ratio of the expected value.
-const MATCH_FLOOR = 5; // ₪
-const MATCH_RATIO = 0.01; // 1%
+// The floor is deliberately small so a real gap on a low-value row (e.g. a ₪4 miss on a ₪58
+// pension deduction, ~7%) still surfaces instead of hiding under the flat band.
+const MATCH_FLOOR = 2; // ₪
+const MATCH_RATIO = 0.015; // 1.5%
 
 function statusFor(expected: number, actual: number | null): ComparisonStatus {
   if (actual == null) return 'missing';
