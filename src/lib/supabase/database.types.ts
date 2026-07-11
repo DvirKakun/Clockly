@@ -41,6 +41,51 @@ export type Database = {
           },
         ];
       };
+      payslips: {
+        Row: {
+          created_at: string;
+          gross: number | null;
+          id: string;
+          income_tax: number | null;
+          month: number;
+          net: number | null;
+          pension: number | null;
+          social_security: number | null;
+          travel: number | null;
+          updated_at: string;
+          user_id: string;
+          year: number;
+        };
+        Insert: {
+          created_at?: string;
+          gross?: number | null;
+          id?: string;
+          income_tax?: number | null;
+          month: number;
+          net?: number | null;
+          pension?: number | null;
+          social_security?: number | null;
+          travel?: number | null;
+          updated_at?: string;
+          user_id: string;
+          year: number;
+        };
+        Update: {
+          created_at?: string;
+          gross?: number | null;
+          id?: string;
+          income_tax?: number | null;
+          month?: number;
+          net?: number | null;
+          pension?: number | null;
+          social_security?: number | null;
+          travel?: number | null;
+          updated_at?: string;
+          user_id?: string;
+          year?: number;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string;
