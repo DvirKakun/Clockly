@@ -58,15 +58,27 @@ describe('computeSocialSecurity', () => {
   it('applies the low rate under the lower threshold', () => {
     const result = computeSocialSecurity(5000);
     expect(result.total).toBeCloseTo(5000 * 0.0427, 5);
-    expect(result.aboveThreshold).toBe(0);
   });
 
-  it('applies the split rate above the lower threshold', () => {
+  it('splits national insurance and health tax below the threshold', () => {
+    const result = computeSocialSecurity(5000);
+    expect(result.nationalInsurance).toBeCloseTo(5000 * 0.0104, 5);
+    expect(result.healthTax).toBeCloseTo(5000 * 0.0323, 5);
+  });
+
+  it('splits national insurance and health tax across both tiers', () => {
     const result = computeSocialSecurity(10000);
-    const below = 7703 * 0.0427;
-    const above = (10000 - 7703) * 0.1217;
-    expect(result.belowThreshold).toBeCloseTo(below, 5);
-    expect(result.aboveThreshold).toBeCloseTo(above, 5);
+    const ni = 7703 * 0.0104 + (10000 - 7703) * 0.07;
+    const health = 7703 * 0.0323 + (10000 - 7703) * 0.0517;
+    expect(result.nationalInsurance).toBeCloseTo(ni, 5);
+    expect(result.healthTax).toBeCloseTo(health, 5);
+  });
+
+  it('always sums the two parts to exactly the total', () => {
+    for (const income of [3000, 7703, 10000, 51910, 100000]) {
+      const r = computeSocialSecurity(income);
+      expect(r.nationalInsurance + r.healthTax).toBe(r.total);
+    }
   });
 
   it('caps contributions at the ceiling', () => {

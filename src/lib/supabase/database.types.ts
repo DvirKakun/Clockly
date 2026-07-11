@@ -47,10 +47,11 @@ export type Database = {
           gross: number | null;
           id: string;
           income_tax: number | null;
+          health_tax: number | null;
           month: number;
+          national_insurance: number | null;
           net: number | null;
           pension: number | null;
-          social_security: number | null;
           travel: number | null;
           updated_at: string;
           user_id: string;
@@ -61,10 +62,11 @@ export type Database = {
           gross?: number | null;
           id?: string;
           income_tax?: number | null;
+          health_tax?: number | null;
           month: number;
+          national_insurance?: number | null;
           net?: number | null;
           pension?: number | null;
-          social_security?: number | null;
           travel?: number | null;
           updated_at?: string;
           user_id: string;
@@ -75,10 +77,11 @@ export type Database = {
           gross?: number | null;
           id?: string;
           income_tax?: number | null;
+          health_tax?: number | null;
           month?: number;
+          national_insurance?: number | null;
           net?: number | null;
           pension?: number | null;
-          social_security?: number | null;
           travel?: number | null;
           updated_at?: string;
           user_id?: string;

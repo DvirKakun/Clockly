@@ -13,20 +13,30 @@ import type { MonthSummary } from '@/lib/calc/monthSummary';
 const FIELDS: { key: keyof PayslipFigures; label: string }[] = [
   { key: 'gross', label: 'ברוטו (₪)' },
   { key: 'income_tax', label: 'מס הכנסה (₪)' },
-  { key: 'social_security', label: 'ביטוח לאומי ובריאות (₪)' },
+  { key: 'national_insurance', label: 'ביטוח לאומי (₪)' },
+  { key: 'health_tax', label: 'דמי בריאות (₪)' },
   { key: 'pension', label: 'ניכוי פנסיה (₪)' },
   { key: 'travel', label: 'נסיעות (₪)' },
   { key: 'net', label: 'נטו לתשלום (₪)' },
 ];
 
 type FormState = Record<keyof PayslipFigures, string>;
-const emptyForm: FormState = { gross: '', income_tax: '', social_security: '', pension: '', travel: '', net: '' };
+const emptyForm: FormState = {
+  gross: '',
+  income_tax: '',
+  national_insurance: '',
+  health_tax: '',
+  pension: '',
+  travel: '',
+  net: '',
+};
 
 function rowToForm(p: PayslipRow): FormState {
   return {
     gross: p.gross != null ? String(p.gross) : '',
     income_tax: p.income_tax != null ? String(p.income_tax) : '',
-    social_security: p.social_security != null ? String(p.social_security) : '',
+    national_insurance: p.national_insurance != null ? String(p.national_insurance) : '',
+    health_tax: p.health_tax != null ? String(p.health_tax) : '',
     pension: p.pension != null ? String(p.pension) : '',
     travel: p.travel != null ? String(p.travel) : '',
     net: p.net != null ? String(p.net) : '',
@@ -38,7 +48,8 @@ function formToFigures(f: FormState): PayslipFigures {
   return {
     gross: num(f.gross),
     income_tax: num(f.income_tax),
-    social_security: num(f.social_security),
+    national_insurance: num(f.national_insurance),
+    health_tax: num(f.health_tax),
     pension: num(f.pension),
     travel: num(f.travel),
     net: num(f.net),

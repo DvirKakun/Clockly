@@ -1,11 +1,13 @@
 import type { MonthSummary } from '@/lib/calc/monthSummary';
 
-/** The six user-entered payslip figures (each optional — partial entry is allowed). */
+/** The user-entered payslip figures (each optional — partial entry is allowed). National
+ * insurance and health tax are separate, matching how an Israeli payslip breaks them out. */
 export interface PayslipFigures {
   gross: number | null;
   net: number | null;
   income_tax: number | null;
-  social_security: number | null;
+  national_insurance: number | null;
+  health_tax: number | null;
   pension: number | null;
   travel: number | null;
 }
@@ -44,7 +46,8 @@ export function buildPayslipComparison(summary: MonthSummary, actual: PayslipFig
   const rows: { key: keyof PayslipFigures; label: string; expected: number }[] = [
     { key: 'gross', label: 'ברוטו', expected: summary.totalGross },
     { key: 'income_tax', label: 'מס הכנסה', expected: summary.net.incomeTax },
-    { key: 'social_security', label: 'ביטוח לאומי ובריאות', expected: summary.net.socialSecurity },
+    { key: 'national_insurance', label: 'ביטוח לאומי', expected: summary.net.nationalInsurance },
+    { key: 'health_tax', label: 'דמי בריאות', expected: summary.net.healthTax },
     { key: 'pension', label: 'פנסיה', expected: summary.net.pensionEmployee },
     { key: 'travel', label: 'נסיעות', expected: summary.totalTravelReimbursement },
     { key: 'net', label: 'נטו לתשלום', expected: summary.takeHomePay },

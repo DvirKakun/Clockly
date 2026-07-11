@@ -16,8 +16,8 @@ function fakeSummary(): MonthSummary {
       creditPointsValue: 545,
       incomeTaxBeforeCredits: 1000,
       incomeTax: 500,
-      socialSecurity: 700,
-      socialSecurityBreakdown: { belowThreshold: 700, aboveThreshold: 0 },
+      nationalInsurance: 300,
+      healthTax: 400,
       pensionEmployee: 600,
       kerenHishtalmutEmployee: 0,
       totalDeductions: 1800,
@@ -30,7 +30,8 @@ const emptyActual: PayslipFigures = {
   gross: null,
   net: null,
   income_tax: null,
-  social_security: null,
+  national_insurance: null,
+  health_tax: null,
   pension: null,
   travel: null,
 };
@@ -41,7 +42,8 @@ describe('buildPayslipComparison', () => {
     const byKey = Object.fromEntries(rows.map((r) => [r.key, r.expected]));
     expect(byKey.gross).toBe(10000);
     expect(byKey.income_tax).toBe(500);
-    expect(byKey.social_security).toBe(700);
+    expect(byKey.national_insurance).toBe(300);
+    expect(byKey.health_tax).toBe(400);
     expect(byKey.pension).toBe(600);
     expect(byKey.travel).toBe(200);
     expect(byKey.net).toBe(8200);

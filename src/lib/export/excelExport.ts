@@ -43,7 +43,8 @@ export async function buildMonthlyReportWorkbook(
   summarySheet.getCell('A2').font = { bold: true, size: 13 };
   summarySheet.addRow({ label: 'סה"כ ברוטו', value: summary.totalGross });
   summarySheet.addRow({ label: 'מס הכנסה', value: -summary.net.incomeTax });
-  summarySheet.addRow({ label: 'ביטוח לאומי ובריאות', value: -summary.net.socialSecurity });
+  summarySheet.addRow({ label: 'ביטוח לאומי', value: -summary.net.nationalInsurance });
+  summarySheet.addRow({ label: 'דמי בריאות', value: -summary.net.healthTax });
   if (summary.net.pensionEmployee > 0) summarySheet.addRow({ label: 'פנסיה', value: -summary.net.pensionEmployee });
   if (summary.net.kerenHishtalmutEmployee > 0) {
     summarySheet.addRow({ label: 'קרן השתלמות', value: -summary.net.kerenHishtalmutEmployee });
