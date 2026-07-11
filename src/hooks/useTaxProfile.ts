@@ -13,9 +13,12 @@ export function useTaxProfile() {
     queryKey: ['tax-profile', userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('tax_profiles').select('*').single();
+      // maybeSingle (not single): a missing row — e.g. if the signup trigger that seeds the
+      // tax profile ever failed — returns null instead of throwing and taking down the whole
+      // dashboard/reports/settings. Consumers already treat a null profile as "not loaded yet".
+      const { data, error } = await supabase.from('tax_profiles').select('*').maybeSingle();
       if (error) throw error;
-      return data as TaxProfileRow;
+      return data as TaxProfileRow | null;
     },
   });
 }
@@ -28,10 +31,11 @@ export function useUpdateTaxProfile() {
   return useMutation({
     mutationFn: async (updates: TaxProfileUpdate) => {
       if (!userId) throw new Error('Not authenticated');
+      // upsert (not update): if the profile row is somehow missing it's created here rather than
+      // silently updating zero rows; the other columns fall back to their schema defaults.
       const { data, error } = await supabase
         .from('tax_profiles')
-        .update(updates)
-        .eq('id', userId)
+        .upsert({ id: userId, ...updates })
         .select()
         .single();
       if (error) throw error;
