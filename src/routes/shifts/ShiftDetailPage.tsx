@@ -145,9 +145,11 @@ export function ShiftDetailPage() {
               {breakdown.unpaidBreakHours > 0 && (
                 <HoursRow label="הפסקות ללא תשלום" value={-breakdown.unpaidBreakHours} />
               )}
-              <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
-                <span>שעות בתשלום</span>
-                <span dir="ltr">{breakdown.payableHours.toFixed(2)}</span>
+              <div className="mt-2 flex items-baseline gap-2 border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
+                <span className="min-w-0 flex-1">שעות בתשלום</span>
+                <span className="w-[4.5rem] shrink-0 text-end tabular-nums" dir="ltr">
+                  {breakdown.payableHours.toFixed(2)}
+                </span>
               </div>
               <p className="mt-2 text-xs text-black/40 dark:text-white/40">
                 תעריף בסיס: {formatCurrency(breakdown.hourlyRateUsed)} לשעה
@@ -156,26 +158,32 @@ export function ShiftDetailPage() {
 
             <Card>
               <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">פירוט שכר</h2>
+              {/* Three columns, not a two-child justify-between: with the hours glued to the label
+                  the row left a wide void down the middle and the hours never lined up from one
+                  row to the next. The label takes the slack, and hours and money sit in fixed
+                  columns with tabular figures so they align vertically. */}
               {breakdown.tiers.map((tier) => (
-                <div key={tier.key} className="flex items-baseline justify-between py-1 text-sm">
-                  <span className="text-black/60 dark:text-white/60">
-                    {tier.label}
-                    {tier.hours !== undefined && (
-                      <span className="ms-1.5 text-xs text-black/40 dark:text-white/40" dir="ltr">
-                        {tier.hours.toFixed(2)}h
-                      </span>
-                    )}
+                <div key={tier.key} className="flex items-baseline gap-2 py-1 text-sm">
+                  <span className="min-w-0 flex-1 text-black/60 dark:text-white/60">{tier.label}</span>
+                  <span className="w-16 shrink-0 text-end text-xs tabular-nums text-black/40 dark:text-white/40" dir="ltr">
+                    {tier.hours !== undefined ? `${tier.hours.toFixed(2)}h` : ''}
                   </span>
-                  <span className="font-medium">{formatCurrency(tier.amount)}</span>
+                  <span className="w-[4.5rem] shrink-0 text-end font-medium tabular-nums">
+                    {formatCurrency(tier.amount)}
+                  </span>
                 </div>
               ))}
 
               {breakdown.adjustments.length > 0 && (
                 <div className="mt-2 border-t border-black/5 pt-2 dark:border-white/10">
                   {breakdown.adjustments.map((adj) => (
-                    <div key={adj.key} className="flex justify-between py-1 text-sm">
-                      <span className="text-black/60 dark:text-white/60">{adj.label}</span>
-                      <span className={adj.amount < 0 ? 'font-medium text-red-500' : 'font-medium'}>
+                    <div key={adj.key} className="flex items-baseline gap-2 py-1 text-sm">
+                      <span className="min-w-0 flex-1 text-black/60 dark:text-white/60">{adj.label}</span>
+                      <span
+                        className={`w-[4.5rem] shrink-0 text-end tabular-nums ${
+                          adj.amount < 0 ? 'font-medium text-red-500' : 'font-medium'
+                        }`}
+                      >
                         {adj.amount < 0
                           ? `-${formatCurrency(Math.abs(adj.amount))}`
                           : formatCurrency(adj.amount)}
@@ -185,9 +193,9 @@ export function ShiftDetailPage() {
                 </div>
               )}
 
-              <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-base font-bold dark:border-white/10">
-                <span>סה&quot;כ למשמרת</span>
-                <span>{formatCurrency(breakdown.totalGross)}</span>
+              <div className="mt-2 flex items-baseline gap-2 border-t border-black/10 pt-2 text-base font-bold dark:border-white/10">
+                <span className="min-w-0 flex-1">סה&quot;כ למשמרת</span>
+                <span className="w-[4.5rem] shrink-0 text-end tabular-nums">{formatCurrency(breakdown.totalGross)}</span>
               </div>
             </Card>
           </>
@@ -246,9 +254,12 @@ function DetailHeader({ onBack }: { onBack: () => void }) {
 function HoursRow({ label, value }: { label: string; value: number }) {
   const isNegative = value < 0;
   return (
-    <div className="flex justify-between py-1 text-sm">
-      <span className="text-black/60 dark:text-white/60">{label}</span>
-      <span className={isNegative ? 'font-medium text-red-500' : 'font-medium'} dir="ltr">
+    <div className="flex items-baseline gap-2 py-1 text-sm">
+      <span className="min-w-0 flex-1 text-black/60 dark:text-white/60">{label}</span>
+      <span
+        className={`w-[4.5rem] shrink-0 text-end tabular-nums ${isNegative ? 'font-medium text-red-500' : 'font-medium'}`}
+        dir="ltr"
+      >
         {isNegative ? '-' : ''}
         {Math.abs(value).toFixed(2)}
       </span>
