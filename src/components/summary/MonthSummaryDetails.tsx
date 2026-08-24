@@ -13,10 +13,17 @@ import type { MonthSummary } from '@/lib/calc/monthSummary';
 export function MonthSummaryDetails({
   summary,
   showByWorkplace = true,
+  showDeductions = true,
 }: {
   summary: MonthSummary;
   /** Hidden when there's only one workplace — it would just repeat the totals above. */
   showByWorkplace?: boolean;
+  /**
+   * Statutory deductions and net are computed on aggregate taxable gross across every employer
+   * (brackets and the Bituach Leumi ceiling are shared), so they are meaningless beside a single
+   * workplace's gross. A per-workplace report turns them off and supplies its own estimate.
+   */
+  showDeductions?: boolean;
 }) {
   const { totals, net } = summary;
   const hasMultipleWorkplaces = summary.byWorkplace.length > 1;
@@ -46,6 +53,7 @@ export function MonthSummaryDetails({
         </p>
       </Card>
 
+      {showDeductions && (
       <Card>
         <SectionHeading>ניכויי חובה</SectionHeading>
         <SummaryRow label="מס הכנסה" value={-net.incomeTax} />
@@ -58,14 +66,11 @@ export function MonthSummaryDetails({
           {net.creditPoints.toFixed(2)} נקודות זיכוי ({formatCurrency(net.creditPointsValue)})
         </p>
       </Card>
+      )}
 
-      <Card className="bg-gradient-to-br from-brand-500 to-accent-cyan text-white print:border print:border-black/20 print:bg-none print:text-black">
-        <p className="text-sm opacity-80 print:opacity-100">נטו לתשלום</p>
-        <p className="mt-1 text-3xl font-bold">{formatCurrency(summary.takeHomePay)}</p>
-        <p className="mt-2 text-xs opacity-80 print:opacity-100">
-          כולל החזר נסיעות של {formatCurrency(totals.travelReimbursement)}, שאינו חייב במס
-        </p>
-      </Card>
+      {showDeductions && (
+        <NetPanel takeHomePay={summary.takeHomePay} travelReimbursement={totals.travelReimbursement} />
+      )}
 
       {showByWorkplace && hasMultipleWorkplaces && (
         <Card>
@@ -93,6 +98,25 @@ export function MonthSummaryDetails({
         </Card>
       )}
     </>
+  );
+}
+
+/**
+ * The breakdown's conclusion. Deliberately a tinted panel rather than a saturated filled card:
+ * a filled brand-gradient card reads as the screen's primary call to action, and this one does
+ * nothing when tapped. In this app a gradient fill means "this navigates somewhere" (see the
+ * dashboard's headline card); emphasis without a fill means "this is the important number".
+ * A tinted panel with dark text also prints correctly with no print-specific overrides.
+ */
+function NetPanel({ takeHomePay, travelReimbursement }: { takeHomePay: number; travelReimbursement: number }) {
+  return (
+    <div className="rounded-3xl border border-brand-500/20 bg-brand-500/10 p-4">
+      <p className="text-sm font-medium text-black/60 dark:text-white/60">נטו לתשלום</p>
+      <p className="mt-1 text-3xl font-bold text-brand-600 dark:text-brand-400">{formatCurrency(takeHomePay)}</p>
+      <p className="mt-2 text-xs text-black/50 dark:text-white/50">
+        כולל החזר נסיעות של {formatCurrency(travelReimbursement)}, שאינו חייב במס
+      </p>
+    </div>
   );
 }
 

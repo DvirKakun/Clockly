@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FileSpreadsheet, Printer, FileText } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { FileSpreadsheet, Printer, FileText, X } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -17,12 +18,19 @@ import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
 import { usePeriodStore } from '@/store/periodStore';
 import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
+import { filterSummaryToWorkplace } from '@/lib/workplaceReport';
+import { SummaryRow } from '@/components/summary/MonthSummaryDetails';
 
 export function ReportsPage() {
   // Shared with the dashboard and shifts screens (see periodStore).
   const year = usePeriodStore((s) => s.year);
   const month = usePeriodStore((s) => s.month);
   const setPeriod = usePeriodStore((s) => s.setPeriod);
+  // A URL param, unlike the month: the filter is a real view identity worth linking to and
+  // worth having in history, and it is set by a deliberate navigation rather than by repeated
+  // stepping, so it doesn't pollute the back stack.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const workplaceFilter = searchParams.get('workplace');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -40,10 +48,29 @@ export function ReportsPage() {
   // user never sees a calendar-month window's report for a frame.
   const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
-  const summary = useMemo(() => {
+  const fullSummary = useMemo(() => {
     if (!taxProfile || workplaces.length === 0) return null;
     return computeMonthSummary(workplaces, shifts, taxProfile);
   }, [workplaces, shifts, taxProfile]);
+
+  // An unknown or archived id falls back to the unfiltered report rather than an empty screen,
+  // so filteredWorkplace is derived from what actually survived the filter.
+  const summary = useMemo(
+    () => (fullSummary ? filterSummaryToWorkplace(fullSummary, workplaceFilter) : null),
+    [fullSummary, workplaceFilter]
+  );
+  const filteredWorkplace =
+    summary && summary.byWorkplace.length === 1 && workplaceFilter === summary.byWorkplace[0].workplace.id
+      ? summary.byWorkplace[0].workplace
+      : null;
+  const isFiltered = !!filteredWorkplace;
+  // The tax caveat only applies when there is more than one employer to coordinate between.
+  const hasMultipleWorkplaces = (fullSummary?.byWorkplace.length ?? 0) > 1;
+
+  const reportShifts = useMemo(
+    () => (filteredWorkplace ? shifts.filter((s) => s.workplace_id === filteredWorkplace.id) : shifts),
+    [shifts, filteredWorkplace]
+  );
 
   const isLoading = loadingWorkplaces || loadingShifts;
 
@@ -59,6 +86,14 @@ export function ReportsPage() {
     }));
   }, [summary, taxProfile]);
 
+  // The sanctioned per-employer figure: computed "as if this were the person's only income",
+  // exact for a single-job user and an estimate for a multi-job one (see payslipCompare).
+  const workplaceExpected = useMemo(() => {
+    if (!filteredWorkplace || !summary || !taxProfile) return null;
+    const entry = summary.byWorkplace[0];
+    return expectedForWorkplace(entry.gross, taxProfileRowToTaxProfile(taxProfile));
+  }, [filteredWorkplace, summary, taxProfile]);
+
   async function handleExportExcel() {
     if (!summary) return;
     setExporting(true);
@@ -67,8 +102,9 @@ export function ReportsPage() {
       // Lazy-loaded: exceljs is ~260kB gzipped and would otherwise download just to view this
       // page, even for users who never export.
       const { buildMonthlyReportWorkbook, downloadWorkbook } = await import('@/lib/export/excelExport');
-      const workbook = await buildMonthlyReportWorkbook(summary, shifts, monthLabel);
-      await downloadWorkbook(workbook, `clockly-${year}-${String(month + 1).padStart(2, '0')}.xlsx`);
+      const workbook = await buildMonthlyReportWorkbook(summary, reportShifts, monthLabel);
+      const suffix = filteredWorkplace ? `-${filteredWorkplace.name}` : '';
+      await downloadWorkbook(workbook, `clockly-${year}-${String(month + 1).padStart(2, '0')}${suffix}.xlsx`);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'הייצוא נכשל, נסה/י שוב');
     } finally {
@@ -93,6 +129,23 @@ export function ReportsPage() {
             ) : undefined
           }
         />
+
+        {filteredWorkplace && (
+          <div className="flex items-center justify-between rounded-2xl bg-brand-500/10 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: filteredWorkplace.color }} />
+              <span className="text-sm font-medium">מסונן: {filteredWorkplace.name}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchParams({}, { replace: true })}
+              aria-label="הצגת כל מקומות העבודה"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-black/50 dark:text-white/50"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button variant="secondary" fullWidth onClick={handleExportExcel} disabled={!summary || exporting}>
@@ -119,13 +172,41 @@ export function ReportsPage() {
         ) : (
           <>
           <div className="print-report flex flex-col gap-4">
-            <h2 className="hidden text-xl font-bold print:block">דוח משכורת — {monthLabel}</h2>
+            <h2 className="hidden text-xl font-bold print:block">
+              דוח משכורת — {monthLabel}
+              {filteredWorkplace ? ` — ${filteredWorkplace.name}` : ''}
+            </h2>
 
             {/* The same itemized breakdown the shifts screen's summary sheet renders. The old
                 report stopped at gross + statutory deductions, so bonuses, tips, meal deductions,
                 overtime and Shabbat pay never appeared. showByWorkplace is off because the
-                per-workplace shift tables directly below already break the month down by employer. */}
-            <MonthSummaryDetails summary={summary} showByWorkplace={false} />
+                per-workplace shift tables directly below already break the month down by employer.
+                When filtered to one workplace the aggregate deductions are suppressed — they are
+                computed across every employer and would be meaningless beside one job's gross. */}
+            <MonthSummaryDetails summary={summary} showByWorkplace={false} showDeductions={!isFiltered} />
+
+            {isFiltered && workplaceExpected && (
+              <Card>
+                <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">
+                  אומדן תלוש למקום עבודה זה
+                </h2>
+                <SummaryRow label="מס הכנסה" value={-workplaceExpected.income_tax} />
+                <SummaryRow label="ביטוח לאומי" value={-workplaceExpected.national_insurance} />
+                <SummaryRow label="דמי בריאות" value={-workplaceExpected.health_tax} />
+                <SummaryRow label="פנסיה" value={-workplaceExpected.pension} />
+                <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
+                  <span>נטו לתשלום</span>
+                  <span>{formatCurrency(workplaceExpected.net)}</span>
+                </div>
+                {hasMultipleWorkplaces && (
+                  <p className="mt-3 rounded-2xl bg-black/[0.03] px-3 py-2 text-xs text-black/50 dark:bg-white/[0.04] dark:text-white/50">
+                    מדרגות המס ותקרת הביטוח הלאומי משותפות לכל המעסיקים, ולכן זהו אומדן שמחושב כאילו
+                    זו ההכנסה היחידה — הניכוי בפועל תלוי בתיאום המס שלך. הנטו המשולב לחודש מופיע
+                    בדוח ללא הסינון.
+                  </p>
+                )}
+              </Card>
+            )}
 
             {summary.byWorkplace.map(({ workplace, gross }) => (
               <Card key={workplace.id} className="overflow-x-auto">
@@ -145,7 +226,7 @@ export function ReportsPage() {
                   <tbody>
                     {[...gross.shiftResults]
                       .map((shift) => {
-                        const row = shifts.find((s) => s.id === shift.shiftId);
+                        const row = reportShifts.find((s) => s.id === shift.shiftId);
                         return { shift, date: row?.date ?? '', dayType: row?.day_type };
                       })
                       .sort((a, b) => a.date.localeCompare(b.date))

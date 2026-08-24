@@ -87,15 +87,30 @@ export function DashboardPage() {
           </Card>
         ) : summary ? (
           <>
+            {/* The most prominent element on the screen was a static readout painted like a call
+                to action — users tapped it and nothing happened. It now does what it looks like it
+                does. The gradient fill is reserved for cards that navigate somewhere; inert
+                emphasis uses a tinted panel instead (see MonthSummaryDetails' net panel). */}
             <motion.div layout>
-              <Card className="bg-gradient-to-br from-brand-500 to-accent-cyan text-white">
-                <p className="text-sm opacity-80">שכר נטו משוער לחודש</p>
-                <p className="mt-1 text-4xl font-bold">{formatCurrency(summary.takeHomePay)}</p>
-                <div className="mt-4 flex justify-between text-sm opacity-90">
-                  <span>ברוטו: {formatCurrency(summary.totalGross)}</span>
-                  <span>{summary.totals.totalHours.toFixed(1)} שעות</span>
-                </div>
-              </Card>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.985 }}
+                onClick={() => navigate('/reports')}
+                aria-label="הצגת הדוח החודשי המלא"
+                className="w-full text-start"
+              >
+                <Card className="bg-gradient-to-br from-brand-500 to-accent-cyan text-white">
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm opacity-80">שכר נטו משוער לחודש</p>
+                    <ChevronRight size={18} className="rotate-180 opacity-70" />
+                  </div>
+                  <p className="mt-1 text-4xl font-bold">{formatCurrency(summary.takeHomePay)}</p>
+                  <div className="mt-4 flex justify-between text-sm opacity-90">
+                    <span>ברוטו: {formatCurrency(summary.totalGross)}</span>
+                    <span>{summary.totals.totalHours.toFixed(1)} שעות</span>
+                  </div>
+                </Card>
+              </motion.button>
             </motion.div>
 
             {(summary.totals.bonuses > 0 ||
@@ -126,13 +141,23 @@ export function DashboardPage() {
             <div className="flex flex-col gap-3">
               <h2 className="text-sm font-semibold text-black/60 dark:text-white/60">לפי מקום עבודה</h2>
               {summary.byWorkplace.map(({ workplace, gross }) => (
-                <Card key={workplace.id}>
+                <button
+                  key={workplace.id}
+                  type="button"
+                  onClick={() => navigate(`/reports?workplace=${encodeURIComponent(workplace.id)}`)}
+                  aria-label={`הצגת הדוח של ${workplace.name}`}
+                  className="text-start"
+                >
+                <Card>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: workplace.color }} />
                       <span className="font-medium">{workplace.name}</span>
                     </div>
-                    <span className="font-semibold">{formatCurrency(gross.totalGross)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold">{formatCurrency(gross.totalGross)}</span>
+                      <ChevronRight size={15} className="rotate-180 text-black/30 dark:text-white/30" />
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-black/50 dark:text-white/50">
                     <span>{gross.totalHours.toFixed(1)} שעות</span>
@@ -142,6 +167,7 @@ export function DashboardPage() {
                     {gross.tips > 0 && <span>טיפים: {formatCurrency(gross.tips)}</span>}
                   </div>
                 </Card>
+                </button>
               ))}
             </div>
 
