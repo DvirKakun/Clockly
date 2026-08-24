@@ -52,6 +52,14 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  // Pinned, not "first free port". Supabase validates the OAuth `redirectTo` against its
+  // Redirect-URLs allow-list and silently falls back to the Site URL (production) when it doesn't
+  // match — so a dev server that drifts 5173→5174→5175 breaks Google sign-in locally every time
+  // the port moves. strictPort fails loudly instead of drifting.
+  server: {
+    port: 5174,
+    strictPort: true,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
