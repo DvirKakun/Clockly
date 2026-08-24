@@ -83,7 +83,7 @@ export function DashboardPage() {
             <p className="mb-3 text-sm text-black/60 dark:text-white/60">
               עדיין לא הוספת מקום עבודה. הוסיפו מקום עבודה כדי להתחיל לעקוב אחרי שעות ושכר.
             </p>
-            <Button onClick={() => (window.location.href = '/workplaces')}>הוספת מקום עבודה</Button>
+            <Button onClick={() => navigate('/workplaces')}>הוספת מקום עבודה</Button>
           </Card>
         ) : summary ? (
           <>
