@@ -27,19 +27,19 @@ export function MonthSummaryDetails({
         <SectionHeading>הכנסות</SectionHeading>
         {/* Base pay is always shown, even at zero: hiding a component of an itemized total would
             make the lines fail to add up to the gross stated at the bottom. */}
-        {totals.monthlyBase > 0 && <Row label="שכר בסיס (חודשי)" value={totals.monthlyBase} alwaysShow />}
-        {totals.monthlyBase === 0 && <Row label="שכר בסיס" value={totals.regularPay} alwaysShow />}
-        {totals.monthlyBase > 0 && totals.regularPay > 0 && <Row label="שכר שעתי" value={totals.regularPay} />}
-        <Row label="שעות נוספות" value={totals.overtimePay} />
-        <Row label="שבת וחג" value={totals.shabbatPay} />
-        <Row label="בונוסים" value={totals.bonuses} />
-        <Row label="טיפים" value={totals.tips} />
-        <Row label="שווי רכב" value={totals.carValueAddition} />
-        <Row label="ניכוי ארוחות" value={-totals.mealDeductions} />
-        <Row label="ניכויים אחרים" value={-totals.otherDeductions} />
+        {totals.monthlyBase > 0 && <SummaryRow label="שכר בסיס (חודשי)" value={totals.monthlyBase} alwaysShow />}
+        {totals.monthlyBase === 0 && <SummaryRow label="שכר בסיס" value={totals.regularPay} alwaysShow />}
+        {totals.monthlyBase > 0 && totals.regularPay > 0 && <SummaryRow label="שכר שעתי" value={totals.regularPay} />}
+        <SummaryRow label="שעות נוספות" value={totals.overtimePay} />
+        <SummaryRow label="שבת וחג" value={totals.shabbatPay} />
+        <SummaryRow label="בונוסים" value={totals.bonuses} />
+        <SummaryRow label="טיפים" value={totals.tips} />
+        <SummaryRow label="שווי רכב" value={totals.carValueAddition} />
+        <SummaryRow label="ניכוי ארוחות" value={-totals.mealDeductions} />
+        <SummaryRow label="ניכויים אחרים" value={-totals.otherDeductions} />
         {/* Travel is a reimbursement, not income — it's excluded from taxable gross by the engine,
             so it's shown here as its own line rather than folded into the pay above. */}
-        <Row label="החזר נסיעות" value={totals.travelReimbursement} />
+        <SummaryRow label="החזר נסיעות" value={totals.travelReimbursement} />
         <TotalRow label="סה&quot;כ ברוטו" value={summary.totalGross} />
         <p className="mt-2 text-xs text-black/40 dark:text-white/40">
           {totals.totalHours.toFixed(1)} שעות בתשלום החודש
@@ -48,21 +48,21 @@ export function MonthSummaryDetails({
 
       <Card>
         <SectionHeading>ניכויי חובה</SectionHeading>
-        <Row label="מס הכנסה" value={-net.incomeTax} />
-        <Row label="ביטוח לאומי" value={-net.nationalInsurance} />
-        <Row label="דמי בריאות" value={-net.healthTax} />
-        <Row label="פנסיה" value={-net.pensionEmployee} />
-        <Row label="קרן השתלמות" value={-net.kerenHishtalmutEmployee} />
+        <SummaryRow label="מס הכנסה" value={-net.incomeTax} />
+        <SummaryRow label="ביטוח לאומי" value={-net.nationalInsurance} />
+        <SummaryRow label="דמי בריאות" value={-net.healthTax} />
+        <SummaryRow label="פנסיה" value={-net.pensionEmployee} />
+        <SummaryRow label="קרן השתלמות" value={-net.kerenHishtalmutEmployee} />
         <TotalRow label="סה&quot;כ ניכויים" value={-net.totalDeductions} />
         <p className="mt-2 text-xs text-black/40 dark:text-white/40">
           {net.creditPoints.toFixed(2)} נקודות זיכוי ({formatCurrency(net.creditPointsValue)})
         </p>
       </Card>
 
-      <Card className="bg-gradient-to-br from-brand-500 to-accent-cyan text-white">
-        <p className="text-sm opacity-80">נטו לתשלום</p>
+      <Card className="bg-gradient-to-br from-brand-500 to-accent-cyan text-white print:border print:border-black/20 print:bg-none print:text-black">
+        <p className="text-sm opacity-80 print:opacity-100">נטו לתשלום</p>
         <p className="mt-1 text-3xl font-bold">{formatCurrency(summary.takeHomePay)}</p>
-        <p className="mt-2 text-xs opacity-80">
+        <p className="mt-2 text-xs opacity-80 print:opacity-100">
           כולל החזר נסיעות של {formatCurrency(totals.travelReimbursement)}, שאינו חייב במס
         </p>
       </Card>
@@ -101,7 +101,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 /** A single itemized line. Zero-valued lines are hidden unless the total depends on them. */
-function Row({ label, value, alwaysShow = false }: { label: string; value: number; alwaysShow?: boolean }) {
+export function SummaryRow({ label, value, alwaysShow = false }: { label: string; value: number; alwaysShow?: boolean }) {
   if (!alwaysShow && Math.abs(value) < 0.005) return null;
   const isDeduction = value < 0;
   return (

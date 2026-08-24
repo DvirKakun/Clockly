@@ -16,6 +16,7 @@ import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
 import { usePeriodStore } from '@/store/periodStore';
+import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
 
 export function ReportsPage() {
   // Shared with the dashboard and shifts screens (see periodStore).
@@ -120,22 +121,11 @@ export function ReportsPage() {
           <div className="print-report flex flex-col gap-4">
             <h2 className="hidden text-xl font-bold print:block">דוח משכורת — {monthLabel}</h2>
 
-            <Card>
-              <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">סיכום</h2>
-              <ReportRow label="סה&quot;כ ברוטו" value={summary.totalGross} />
-              <ReportRow label="מס הכנסה" value={-summary.net.incomeTax} />
-              <ReportRow label="ביטוח לאומי" value={-summary.net.nationalInsurance} />
-              <ReportRow label="דמי בריאות" value={-summary.net.healthTax} />
-              {summary.net.pensionEmployee > 0 && <ReportRow label="פנסיה" value={-summary.net.pensionEmployee} />}
-              {summary.net.kerenHishtalmutEmployee > 0 && (
-                <ReportRow label="קרן השתלמות" value={-summary.net.kerenHishtalmutEmployee} />
-              )}
-              <ReportRow label="החזר נסיעות" value={summary.totalTravelReimbursement} />
-              <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
-                <span>סה&quot;כ לתשלום</span>
-                <span>{formatCurrency(summary.takeHomePay)}</span>
-              </div>
-            </Card>
+            {/* The same itemized breakdown the shifts screen's summary sheet renders. The old
+                report stopped at gross + statutory deductions, so bonuses, tips, meal deductions,
+                overtime and Shabbat pay never appeared. showByWorkplace is off because the
+                per-workplace shift tables directly below already break the month down by employer. */}
+            <MonthSummaryDetails summary={summary} showByWorkplace={false} />
 
             {summary.byWorkplace.map(({ workplace, gross }) => (
               <Card key={workplace.id} className="overflow-x-auto">
@@ -195,14 +185,5 @@ export function ReportsPage() {
         )}
       </div>
     </PageTransition>
-  );
-}
-
-function ReportRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex justify-between py-1 text-sm">
-      <span className="text-black/60 dark:text-white/60">{label}</span>
-      <span className={value < 0 ? 'text-red-500' : 'font-medium'}>{formatCurrency(value)}</span>
-    </div>
   );
 }

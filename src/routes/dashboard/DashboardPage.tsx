@@ -13,6 +13,7 @@ import { PageTransition } from '@/components/layout/PageTransition';
 import { formatCurrency } from '@/lib/format';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import { usePeriodStore } from '@/store/periodStore';
+import { SummaryRow } from '@/components/summary/MonthSummaryDetails';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -92,10 +93,21 @@ export function DashboardPage() {
                 <p className="mt-1 text-4xl font-bold">{formatCurrency(summary.takeHomePay)}</p>
                 <div className="mt-4 flex justify-between text-sm opacity-90">
                   <span>ברוטו: {formatCurrency(summary.totalGross)}</span>
-                  <span>{summary.byWorkplace.reduce((s, w) => s + w.gross.totalHours, 0).toFixed(1)} שעות</span>
+                  <span>{summary.totals.totalHours.toFixed(1)} שעות</span>
                 </div>
               </Card>
             </motion.div>
+
+            {(summary.totals.bonuses > 0 ||
+              summary.totals.tips > 0 ||
+              summary.totals.travelReimbursement > 0) && (
+              <Card>
+                <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">תוספות</h2>
+                <SummaryRow label="בונוסים" value={summary.totals.bonuses} />
+                <SummaryRow label="טיפים" value={summary.totals.tips} />
+                <SummaryRow label="החזר נסיעות" value={summary.totals.travelReimbursement} />
+              </Card>
+            )}
 
             <Card>
               <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">פירוט ניכויים</h2>
@@ -126,6 +138,8 @@ export function DashboardPage() {
                     <span>{gross.totalHours.toFixed(1)} שעות</span>
                     {gross.overtimePay > 0 && <span>נוספות: {formatCurrency(gross.overtimePay)}</span>}
                     {gross.shabbatPay > 0 && <span>שבת/חג: {formatCurrency(gross.shabbatPay)}</span>}
+                    {gross.bonuses > 0 && <span>בונוסים: {formatCurrency(gross.bonuses)}</span>}
+                    {gross.tips > 0 && <span>טיפים: {formatCurrency(gross.tips)}</span>}
                   </div>
                 </Card>
               ))}
