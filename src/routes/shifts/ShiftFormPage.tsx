@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useMemo, useRef, useState } from 'react';
+import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Info, Moon, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -161,7 +161,6 @@ function ShiftForm({
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // Paging reads the shifts already cached for the selected period — the same query the shifts
   // screen runs, so this resolves from cache and costs no extra fetch.
@@ -197,21 +196,31 @@ function ShiftForm({
   const [initialSnapshot] = useState(() => currentSnapshot);
   const isDirty = currentSnapshot !== initialSnapshot;
 
+  // Set immediately before a navigation the user already consented to (saving, deleting), so the
+  // blocker below lets it through instead of asking about changes they just committed.
+  const skipGuard = useRef(false);
+
+  /**
+   * Guards every way out of the form, not just paging between shifts: the in-app back arrow, a
+   * bottom-nav tab, the browser Back button, and the Android system Back button in the installed
+   * PWA all route through here. Intercepting a Back navigation is the reason the app uses a data
+   * router at all — see the note in App.tsx.
+   */
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (skipGuard.current) return false;
+    return isDirty && currentLocation.pathname !== nextLocation.pathname;
+  });
+
   function navigateToShift(shiftId: string) {
     // replace, not push: paging through fifteen shifts must not bury the shifts screen fifteen
     // entries deep, so Back still exits to the list in one press.
     navigate(`/shifts/${shiftId}/edit`, { replace: true });
   }
 
-  function requestNavigate(shiftId: string) {
-    if (isDirty) setPendingNavigation(shiftId);
-    else navigateToShift(shiftId);
-  }
-
   const swipeHandlers = useHorizontalSwipe({
     enabled: isEdit,
-    onSwipeForward: () => neighbours.next && requestNavigate(neighbours.next.id),
-    onSwipeBack: () => neighbours.previous && requestNavigate(neighbours.previous.id),
+    onSwipeForward: () => neighbours.next && navigateToShift(neighbours.next.id),
+    onSwipeBack: () => neighbours.previous && navigateToShift(neighbours.previous.id),
   });
 
   const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
@@ -300,6 +309,7 @@ function ShiftForm({
       } else {
         await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
       }
+      skipGuard.current = true;
       navigate('/shifts');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
@@ -309,6 +319,7 @@ function ShiftForm({
   async function handleDelete() {
     if (id) {
       await deleteShift.mutateAsync(id);
+      skipGuard.current = true;
       navigate('/shifts');
     }
   }
@@ -319,7 +330,7 @@ function ShiftForm({
         <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
 
         {isEdit && (
-          <ShiftDayPager neighbours={neighbours} currentDate={date} onNavigate={requestNavigate} />
+          <ShiftDayPager neighbours={neighbours} currentDate={date} onNavigate={navigateToShift} />
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -584,17 +595,13 @@ function ShiftForm({
         </form>
 
         <ConfirmDialog
-          open={!!pendingNavigation}
+          open={blocker.state === 'blocked'}
           title="יש שינויים שלא נשמרו"
-          message="המעבר למשמרת אחרת יבטל את השינויים שביצעת במשמרת הזו."
-          confirmLabel="מעבר בלי לשמור"
+          message="היציאה מהמסך תבטל את השינויים שביצעת במשמרת הזו."
+          confirmLabel="יציאה בלי לשמור"
           cancelLabel="הישארות"
-          onConfirm={() => {
-            const target = pendingNavigation;
-            setPendingNavigation(null);
-            if (target) navigateToShift(target);
-          }}
-          onCancel={() => setPendingNavigation(null)}
+          onConfirm={() => blocker.proceed?.()}
+          onCancel={() => blocker.reset?.()}
         />
 
         <ConfirmDialog
