@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, CalendarClock, Building2, Settings, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { defaultDateForPeriod, todayIso } from '@/lib/date';
+import { usePeriodStore } from '@/store/periodStore';
 
 const tabs = [
   { to: '/', label: 'בית', icon: LayoutDashboard, end: true },
@@ -10,6 +12,14 @@ const tabs = [
 ];
 
 export function BottomNav() {
+  // The + is the last action that ignored the month the user is looking at. It reuses the same
+  // location.state channel the calendar day panel's add action already uses, so the shift form
+  // needs no change — it already prefers that date over today.
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const selectedDate = usePeriodStore((s) => s.selectedDate);
+  const newShiftDate = defaultDateForPeriod(year, month, selectedDate, todayIso());
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-black/5 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-[#16171d]/85"
@@ -20,7 +30,12 @@ export function BottomNav() {
           <TabLink key={tab.to} {...tab} />
         ))}
 
-        <NavLink to="/shifts/new" aria-label="הוסף משמרת" className="relative -top-4">
+        <NavLink
+          to="/shifts/new"
+          state={{ date: newShiftDate }}
+          aria-label="הוסף משמרת"
+          className="relative -top-4"
+        >
           {({ isActive }) => (
             <motion.div
               whileTap={{ scale: 0.88 }}

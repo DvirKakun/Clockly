@@ -30,6 +30,32 @@ export function todayIso(): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
+/**
+ * The date a new shift should default to, given the period the user is looking at.
+ *
+ * The + button used to carry no context, so the form always fell back to today — browse to March,
+ * tap +, and get a form dated today. Beyond the retyping, a forgotten date change files the shift
+ * under the wrong pay period and quietly changes two months' totals.
+ *
+ * A selected calendar day wins (the + should agree with the day panel's own add action); otherwise
+ * today, if today is inside the month being viewed; otherwise the first of that month. The first
+ * of month M is inside period M for every configurable start day (capped at 28), since a period
+ * with start day D runs D of M-1 through D-1 of M.
+ *
+ * `today` is passed in rather than read, so the decision is pure and testable.
+ */
+export function defaultDateForPeriod(
+  year: number,
+  month: number,
+  selectedDate: string | null,
+  today: string
+): string {
+  if (selectedDate) return selectedDate;
+  const [todayYear, todayMonth] = today.split('-').map(Number);
+  if (todayYear === year && todayMonth === month + 1) return today;
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+}
+
 export function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
