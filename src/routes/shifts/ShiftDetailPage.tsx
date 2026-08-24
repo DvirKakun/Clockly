@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Clock, Coffee, Moon, Pencil, StickyNote } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +29,14 @@ import { WEEKDAY_NAMES_HE } from '@/lib/date';
 export function ShiftDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Go back to wherever this was opened from — the shifts list, or the report. React Router
+  // gives the very first history entry the key 'default', so that identifies a deep link, where
+  // there is nothing to go back to and navigate(-1) would either leave the app or (in the
+  // installed PWA) do nothing at all. Paging between shifts uses replace, so it never adds
+  // entries and the origin stays one step away however far the user paged.
+  const goBack = () => (location.key === 'default' ? navigate('/shifts') : navigate(-1));
 
   const { data: shift } = useShift(id);
   const { data: workplaces = [] } = useAllWorkplaces();
@@ -61,7 +69,7 @@ export function ShiftDetailPage() {
     return (
       <PageTransition>
         <div className="flex flex-col gap-4">
-          <DetailHeader onBack={() => navigate('/shifts')} />
+          <DetailHeader onBack={goBack} />
           <p className="py-12 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
         </div>
       </PageTransition>
@@ -74,7 +82,7 @@ export function ShiftDetailPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4" {...swipeHandlers}>
-        <DetailHeader onBack={() => navigate('/shifts')} />
+        <DetailHeader onBack={goBack} />
 
         <ShiftDayPager
           neighbours={neighbours}

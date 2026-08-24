@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShiftBreakdown } from '../shiftBreakdown';
+import { buildShiftBreakdown, formatBreakDuration } from '../shiftBreakdown';
 import type { ShiftGrossResult } from '../calc/types';
 
 function result(over: Partial<ShiftGrossResult> = {}): ShiftGrossResult {
@@ -180,5 +180,30 @@ describe('buildShiftBreakdown totals', () => {
     const summed = [...b.tiers, ...b.adjustments].reduce((s, r) => s + r.amount, 0);
     expect(summed).toBeCloseTo(-600, 6);
     expect(b.totalGross).toBeLessThan(0);
+  });
+});
+
+describe('formatBreakDuration', () => {
+  it('renders nothing when there were no breaks', () => {
+    expect(formatBreakDuration(0)).toBeNull();
+  });
+
+  it('renders sub-hour breaks in minutes', () => {
+    expect(formatBreakDuration(0.5)).toBe("30 דק'");
+    expect(formatBreakDuration(0.75)).toBe("45 דק'");
+  });
+
+  it('renders an hour or more as h:mm', () => {
+    expect(formatBreakDuration(1)).toBe("1:00 שע'");
+    expect(formatBreakDuration(1.25)).toBe("1:15 שע'");
+    expect(formatBreakDuration(2.5)).toBe("2:30 שע'");
+  });
+
+  it('rounds to the nearest minute', () => {
+    expect(formatBreakDuration(0.4999)).toBe("30 דק'");
+  });
+
+  it('guards against non-finite input', () => {
+    expect(formatBreakDuration(NaN)).toBeNull();
   });
 });

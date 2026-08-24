@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { FileSpreadsheet, Printer, FileText, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FileSpreadsheet, Printer, FileText, X, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -19,9 +19,12 @@ import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard'
 import { usePeriodStore } from '@/store/periodStore';
 import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
 import { filterSummaryToWorkplace } from '@/lib/workplaceReport';
+import { buildShiftBreakdown, formatBreakDuration } from '@/lib/shiftBreakdown';
+import type { ShiftGrossResult } from '@/lib/calc/types';
 import { SummaryRow } from '@/components/summary/MonthSummaryDetails';
 
 export function ReportsPage() {
+  const navigate = useNavigate();
   // Shared with the dashboard and shifts screens (see periodStore).
   const year = usePeriodStore((s) => s.year);
   const month = usePeriodStore((s) => s.month);
@@ -209,54 +212,45 @@ export function ReportsPage() {
             )}
 
             {summary.byWorkplace.map(({ workplace, gross }) => (
-              <Card key={workplace.id} className="overflow-x-auto">
-                <div className="mb-3 flex items-center gap-2">
+              <Card key={workplace.id}>
+                <div className="mb-2 flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full" style={{ backgroundColor: workplace.color }} />
                   <h2 className="text-sm font-semibold">{workplace.name}</h2>
                 </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-black/40 dark:text-white/40">
-                      <th className="py-1 text-start font-medium">תאריך</th>
-                      <th className="py-1 text-start font-medium">סוג יום</th>
-                      <th className="py-1 text-start font-medium">שעות</th>
-                      <th className="py-1 text-start font-medium">סה&quot;כ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...gross.shiftResults]
-                      .map((shift) => {
-                        const row = reportShifts.find((s) => s.id === shift.shiftId);
-                        return { shift, date: row?.date ?? '', dayType: row?.day_type };
-                      })
-                      .sort((a, b) => a.date.localeCompare(b.date))
-                      .map(({ shift, date, dayType }) => (
-                        <tr key={shift.shiftId} className="border-t border-black/5 dark:border-white/10">
-                          {/* dir="ltr" on the number only — putting it on the <td> would also flip
-                              the cell's alignment to the left, colliding the date into the next column. */}
-                          <td className="py-1.5 text-start">
-                            <span dir="ltr">
-                              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
-                            </span>
-                          </td>
-                          <td className="py-1.5 text-start">
-                            {dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}
-                          </td>
-                          <td className="py-1.5">{shift.hours.payableHours.toFixed(1)}</td>
-                          <td className="py-1.5 font-medium">{formatCurrency(shift.totalGross)}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-black/10 font-semibold dark:border-white/10">
-                      <td className="py-1.5" colSpan={2}>
-                        סה&quot;כ
-                      </td>
-                      <td className="py-1.5">{gross.totalHours.toFixed(1)}</td>
-                      <td className="py-1.5">{formatCurrency(gross.totalGross)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+
+                {/* Deliberately rows, not a wider table. AppShell caps the content column at
+                    max-w-lg (512px) on every device, so the columns this needs — date, day type,
+                    hours, breaks, bonus, tips, travel, total — cannot fit even on desktop; they
+                    would force horizontal scrolling at every width. Stacking the figures under
+                    each date fits them all, and makes each shift a real button rather than a
+                    clickable table row. */}
+                <div className="flex flex-col">
+                  {[...gross.shiftResults]
+                    .map((shift) => {
+                      const row = reportShifts.find((s) => s.id === shift.shiftId);
+                      return { shift, date: row?.date ?? '', dayType: row?.day_type };
+                    })
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map(({ shift, date, dayType }) => (
+                      <ReportShiftRow
+                        key={shift.shiftId}
+                        gross={shift}
+                        date={date}
+                        dayType={dayType}
+                        onOpen={() => navigate(`/shifts/${shift.shiftId}`)}
+                      />
+                    ))}
+                </div>
+
+                <div className="mt-2 flex items-center justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
+                  <span>סה&quot;כ</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-black/50 dark:text-white/50" dir="ltr">
+                      {gross.totalHours.toFixed(1)}h
+                    </span>
+                    <span>{formatCurrency(gross.totalGross)}</span>
+                  </span>
+                </div>
               </Card>
             ))}
           </div>
@@ -266,5 +260,63 @@ export function ReportsPage() {
         )}
       </div>
     </PageTransition>
+  );
+}
+
+/**
+ * One shift in the report: the date and total on the first line, everything that made up that
+ * total on the second. Tapping opens the shift summary — hence a real button with a chevron and a
+ * press state, rather than a table row that happens to have an onClick.
+ */
+function ReportShiftRow({
+  gross,
+  date,
+  dayType,
+  onOpen,
+}: {
+  gross: ShiftGrossResult;
+  date: string;
+  dayType: string | undefined;
+  onOpen: () => void;
+}) {
+  const breakdown = buildShiftBreakdown(gross);
+  const breakLabel = formatBreakDuration(breakdown.paidBreakHours + breakdown.unpaidBreakHours);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`פתיחת סיכום המשמרת מתאריך ${date}`}
+      className="flex w-full items-center gap-2 border-t border-black/5 py-2 text-start first:border-0 active:bg-black/[0.03] dark:border-white/10 dark:active:bg-white/[0.04]"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-medium">
+            {/* dir="ltr" on the number only — on the wrapper it would flip the whole line. */}
+            <span dir="ltr">
+              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+            </span>
+            {dayType && dayType !== 'regular' && (
+              <span className="ms-2 rounded-full bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-600 dark:text-brand-400">
+                {DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE]}
+              </span>
+            )}
+          </span>
+          <span className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>
+        </div>
+
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-black/50 dark:text-white/50">
+          <span dir="ltr">{breakdown.payableHours.toFixed(1)}h</span>
+          {breakLabel && <span>הפסקה {breakLabel}</span>}
+          {breakdown.adjustments.map((adj) => (
+            <span key={adj.key} className={adj.amount < 0 ? 'text-red-500/80' : undefined}>
+              {adj.label} {adj.amount < 0 ? `-${formatCurrency(Math.abs(adj.amount))}` : formatCurrency(adj.amount)}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <ChevronRight size={15} className="shrink-0 rotate-180 text-black/25 print:hidden dark:text-white/25" />
+    </button>
   );
 }

@@ -76,3 +76,16 @@ export function buildShiftBreakdown(gross: ShiftGrossResult): ShiftBreakdown {
     unpaidBreakHours: h.unpaidBreakHours,
   };
 }
+
+/**
+ * Compact break duration for a dense report row: "45 דק'" under an hour, "1:15 שע'" above it.
+ * Returns null when there were no breaks, so the caller renders nothing rather than a zero.
+ */
+export function formatBreakDuration(hours: number): string | null {
+  if (!Number.isFinite(hours) || hours < EPSILON) return null;
+  const totalMinutes = Math.round(hours * 60);
+  if (totalMinutes < 60) return `${totalMinutes} דק'`;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, '0')} שע'`;
+}
