@@ -22,6 +22,12 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Held in a ref so the setup effect below can depend on `open` alone. Callers pass an inline
+  // arrow, so a new identity arrives on every parent render — depending on it would tear the
+  // effect down and back up constantly, re-running focus() and yanking focus back to the panel
+  // from whatever the user had focused inside it.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -30,7 +36,7 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
     panelRef.current?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     }
     document.addEventListener('keydown', onKeyDown);
 
@@ -44,7 +50,7 @@ export function BottomSheet({ open, title, onClose, children }: BottomSheetProps
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
