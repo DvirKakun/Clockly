@@ -1,7 +1,8 @@
 # Specs — Shift UX Overhaul (branch `feature/shift-ux-overhaul`)
 
 User-reported tasks, each specced separately and shipped as its own phase/commit on this branch.
-Nine were reported together; #10 was added afterwards as a follow-on to #2. Written with the `to-spec` template (Problem → Solution → User Stories → Implementation
+Nine were reported together; #10 and #11 were added afterwards — #10 as a follow-on to #2, #11
+after Phase 3 reintroduced the false-affordance defect #7 is about. Written with the `to-spec` template (Problem → Solution → User Stories → Implementation
 Decisions → Testing Decisions → Out of Scope → Further Notes).
 
 > **Issue tracker.** This project has no configured issue tracker / triage-label vocabulary, so
@@ -20,6 +21,7 @@ Decisions → Testing Decisions → Out of Scope → Further Notes).
 | 8 | Surface bonuses & tips on Home and in the summary | [08-bonuses-visibility.md](08-bonuses-visibility.md) | DashboardPage, summary component |
 | 9 | Tapping a workplace opens that workplace's report | [09-workplace-report.md](09-workplace-report.md) | DashboardPage, ReportsPage |
 | 10 | The + button opens on the month being viewed | [10-add-shift-uses-viewed-month.md](10-add-shift-uses-viewed-month.md) | BottomNav |
+| 11 | The net card must not look tappable | [11-net-card-not-clickable.md](11-net-card-not-clickable.md) | MonthSummaryDetails |
 
 ## Shared seams introduced
 
