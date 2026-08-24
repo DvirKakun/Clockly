@@ -8,18 +8,11 @@ import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useAllWorkplaces, useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
-import { useTaxProfile } from '@/hooks/useTaxProfile';
-import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
-import { ShiftDayPager } from '@/components/shifts/ShiftDayPager';
-import { resolveShiftNeighbours } from '@/lib/shiftNavigation';
-import { payPeriodRange } from '@/lib/payPeriod';
-import { usePeriodStore } from '@/store/periodStore';
 import {
   useCreateShift,
   useCreateShifts,
   useDeleteShift,
   useShift,
-  useShiftsForRange,
   useUpdateShift,
   type ShiftFormValues,
   type ShiftWithBreaks,
@@ -162,18 +155,6 @@ function ShiftForm({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Paging reads the shifts already cached for the selected period — the same query the shifts
-  // screen runs, so this resolves from cache and costs no extra fetch.
-  const periodYear = usePeriodStore((s) => s.year);
-  const periodMonth = usePeriodStore((s) => s.month);
-  const { data: taxProfile } = useTaxProfile();
-  const period = payPeriodRange(periodYear, periodMonth, taxProfile?.pay_period_start_day ?? 1);
-  const { data: periodShifts = [] } = useShiftsForRange(period.start, period.end, isEdit && !!taxProfile);
-  const neighbours = useMemo(
-    () => resolveShiftNeighbours(periodShifts, id),
-    [periodShifts, id]
-  );
-
   // Crossing midnight is a pure function of the two time fields — never a manual choice.
   const crossesMidnight = endTime !== '' && endTime <= startTime;
 
@@ -209,18 +190,6 @@ function ShiftForm({
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
     if (skipGuard.current) return false;
     return isDirty && currentLocation.pathname !== nextLocation.pathname;
-  });
-
-  function navigateToShift(shiftId: string) {
-    // replace, not push: paging through fifteen shifts must not bury the shifts screen fifteen
-    // entries deep, so Back still exits to the list in one press.
-    navigate(`/shifts/${shiftId}/edit`, { replace: true });
-  }
-
-  const swipeHandlers = useHorizontalSwipe({
-    enabled: isEdit,
-    onSwipeForward: () => neighbours.next && navigateToShift(neighbours.next.id),
-    onSwipeBack: () => neighbours.previous && navigateToShift(neighbours.previous.id),
   });
 
   const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
@@ -287,6 +256,7 @@ function ShiftForm({
     };
 
     try {
+      let createdId: string | null = null;
       if (isEdit && id) {
         await updateShift.mutateAsync({ id, ...baseValues, date, day_type: dayType });
       } else if (repeat === 'weekly' && repeatUntil) {
@@ -307,10 +277,14 @@ function ShiftForm({
         }));
         await createShifts.mutateAsync(valuesList);
       } else {
-        await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
+        const created = await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
+        createdId = created.id;
       }
       skipGuard.current = true;
-      navigate('/shifts');
+      // Back to the shift's summary so the user immediately sees what the edit did. A recurring
+      // batch has no single shift to show, so that returns to the list.
+      const destination = isEdit && id ? `/shifts/${id}` : createdId ? `/shifts/${createdId}` : '/shifts';
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
     }
@@ -326,12 +300,8 @@ function ShiftForm({
 
   return (
     <PageTransition>
-      <div className="flex flex-col gap-4" {...swipeHandlers}>
+      <div className="flex flex-col gap-4">
         <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
-
-        {isEdit && (
-          <ShiftDayPager neighbours={neighbours} currentDate={date} onNavigate={navigateToShift} />
-        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">

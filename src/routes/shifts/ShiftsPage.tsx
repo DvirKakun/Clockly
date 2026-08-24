@@ -164,7 +164,7 @@ export function ShiftsPage() {
                 dayShifts={selectedDayShifts}
                 workplaceMap={workplaceMap}
                 metric={metric}
-                onOpenShift={(id) => navigate(`/shifts/${id}/edit`)}
+                onOpenShift={(id) => navigate(`/shifts/${id}`)}
                 onAddShift={() => navigate('/shifts/new', { state: { date: selectedDate } })}
               />
             )}
@@ -188,7 +188,7 @@ export function ShiftsPage() {
                       shift={shift}
                       workplace={workplaceMap.get(shift.workplace_id)}
                       metric={metric}
-                      onClick={() => navigate(`/shifts/${shift.id}/edit`)}
+                      onClick={() => navigate(`/shifts/${shift.id}`)}
                     />
                   ))}
                 </div>

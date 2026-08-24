@@ -27,6 +27,7 @@ const AuthCallbackPage = lazy(() =>
 const DashboardPage = lazy(() => import('@/routes/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ShiftsPage = lazy(() => import('@/routes/shifts/ShiftsPage').then((m) => ({ default: m.ShiftsPage })));
 const ShiftFormPage = lazy(() => import('@/routes/shifts/ShiftFormPage').then((m) => ({ default: m.ShiftFormPage })));
+const ShiftDetailPage = lazy(() => import('@/routes/shifts/ShiftDetailPage').then((m) => ({ default: m.ShiftDetailPage })));
 const WorkplacesPage = lazy(() => import('@/routes/workplaces/WorkplacesPage').then((m) => ({ default: m.WorkplacesPage })));
 const SettingsPage = lazy(() => import('@/routes/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const RightsPage = lazy(() => import('@/routes/rights/RightsPage').then((m) => ({ default: m.RightsPage })));
@@ -101,6 +102,7 @@ const router = createBrowserRouter(
         <Route path="/" element={<DashboardPage />} />
         <Route path="/shifts" element={<ShiftsPage />} />
         <Route path="/shifts/new" element={<ShiftFormPage />} />
+        <Route path="/shifts/:id" element={<ShiftDetailPage />} />
         <Route path="/shifts/:id/edit" element={<ShiftFormPage />} />
         <Route path="/workplaces" element={<WorkplacesPage />} />
         <Route path="/rights" element={<RightsPage />} />
