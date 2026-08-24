@@ -1,20 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Calendar, List, Plus } from 'lucide-react';
+import { CalendarClock, Calendar, ChartColumn, List, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { useShiftsForRange, type ShiftWithBreaks } from '@/hooks/useShifts';
 import { useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import { useTaxProfile } from '@/hooks/useTaxProfile';
+import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
 import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { isStatutoryHolidayDate } from '@/lib/calc';
 import { formatCurrency } from '@/lib/format';
 import { getMonthGridDays } from '@/lib/calendarGrid';
 import { usePeriodStore } from '@/store/periodStore';
+import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import {
   todayIso,
-  monthRange,
+  MONTH_NAMES_HE,
   WEEKDAY_NAMES_HE as weekdayNames,
   WEEKDAY_SHORT_HE as weekdayShort,
 } from '@/lib/date';
@@ -34,10 +39,17 @@ export function ShiftsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode) || 'calendar'
   );
-  const { start, end } = monthRange(year, month);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const { data: shifts = [], isLoading } = useShiftsForRange(start, end);
   const { data: workplaces = [] } = useWorkplaces();
+  const { data: taxProfile } = useTaxProfile();
+
+  // Windowed by pay period, matching the dashboard and reports screens. Previously this screen
+  // used a plain calendar month, so a user with a custom start day (e.g. 15->14) saw a different
+  // set of shifts here than the totals those screens reported for the same month.
+  const startDay = taxProfile?.pay_period_start_day ?? 1;
+  const period = payPeriodRange(year, month, startDay);
+  const { data: shifts = [], isLoading } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
   const workplaceMap = useMemo(() => new Map(workplaces.map((w) => [w.id, w])), [workplaces]);
 
@@ -56,6 +68,11 @@ export function ShiftsPage() {
     [shiftsByDate]
   );
 
+  const summary = useMemo(() => {
+    if (!taxProfile || workplaces.length === 0) return null;
+    return computeMonthSummary(workplaces, shifts, taxProfile);
+  }, [workplaces, shifts, taxProfile]);
+
   function changeView(mode: ViewMode) {
     setViewMode(mode);
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
@@ -66,24 +83,47 @@ export function ShiftsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <MonthNavigator year={year} month={month} onChange={setPeriod} />
+        <MonthNavigator
+          year={year}
+          month={month}
+          onChange={setPeriod}
+          subLabel={
+            startDay !== 1 ? (
+              <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+                {payPeriodRangeLabel(period)}
+              </span>
+            ) : undefined
+          }
+        />
 
-        <div className="flex justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
+            <button
+              onClick={() => changeView('calendar')}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                viewMode === 'calendar' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
+              }`}
+            >
+              <Calendar size={16} /> לוח שנה
+            </button>
+            <button
+              onClick={() => changeView('list')}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                viewMode === 'list' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
+              }`}
+            >
+              <List size={16} /> רשימה
+            </button>
+          </div>
+
           <button
-            onClick={() => changeView('calendar')}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
-              viewMode === 'calendar' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
-            }`}
+            type="button"
+            onClick={() => setSummaryOpen(true)}
+            disabled={!summary}
+            aria-label="סיכום החודש"
+            className="flex min-h-11 items-center gap-1.5 rounded-2xl bg-brand-500/10 px-3.5 text-sm font-medium text-brand-600 disabled:opacity-40 dark:text-brand-400"
           >
-            <Calendar size={16} /> לוח שנה
-          </button>
-          <button
-            onClick={() => changeView('list')}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
-              viewMode === 'list' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
-            }`}
-          >
-            <List size={16} /> רשימה
+            <ChartColumn size={16} /> סיכום
           </button>
         </div>
 
@@ -135,6 +175,20 @@ export function ShiftsPage() {
             ))}
           </div>
         )}
+
+        <BottomSheet
+          open={summaryOpen}
+          title={`סיכום ${MONTH_NAMES_HE[month]} ${year}`}
+          onClose={() => setSummaryOpen(false)}
+        >
+          {summary ? (
+            <MonthSummaryDetails summary={summary} />
+          ) : (
+            <Card className="py-8 text-center text-sm text-black/40 dark:text-white/40">
+              אין נתונים לחודש זה
+            </Card>
+          )}
+        </BottomSheet>
       </div>
     </PageTransition>
   );
