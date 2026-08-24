@@ -13,6 +13,18 @@ export function monthRange(year: number, month: number): { start: string; end: s
   return { start: iso(month, 1), end: iso(month + 1, 0) };
 }
 
+/**
+ * Steps a 0-indexed {year, month} cursor by whole months, rolling the year at the boundaries
+ * (December + 1 → next January, January − 1 → previous December).
+ *
+ * Lives here rather than inline in MonthNavigator because the period cursor is now shared app-wide
+ * (see periodStore) — the arithmetic has one home and one set of boundary tests.
+ */
+export function stepMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const absolute = year * 12 + month + delta;
+  return { year: Math.floor(absolute / 12), month: ((absolute % 12) + 12) % 12 };
+}
+
 export function todayIso(): string {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);

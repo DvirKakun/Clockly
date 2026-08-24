@@ -15,10 +15,13 @@ import { MONTH_NAMES_HE } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
+import { usePeriodStore } from '@/store/periodStore';
 
 export function ReportsPage() {
-  const now = new Date();
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  // Shared with the dashboard and shifts screens (see periodStore).
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const setPeriod = usePeriodStore((s) => s.setPeriod);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -27,10 +30,10 @@ export function ReportsPage() {
 
   // Falls back to a calendar month (start day 1) until the tax profile loads.
   const startDay = taxProfile?.pay_period_start_day ?? 1;
-  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  const period = payPeriodRange(year, month, startDay);
   // Plain "month year" only. The LTR date range is rendered as its own dir="ltr" element below —
   // never inlined into this Hebrew string, or the bidi algorithm flips it to end–start on screen.
-  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
+  const monthLabel = `${MONTH_NAMES_HE[month]} ${year}`;
 
   // Gate the fetch on the tax profile (which holds the pay-period start day) so a custom-period
   // user never sees a calendar-month window's report for a frame.
@@ -64,7 +67,7 @@ export function ReportsPage() {
       // page, even for users who never export.
       const { buildMonthlyReportWorkbook, downloadWorkbook } = await import('@/lib/export/excelExport');
       const workbook = await buildMonthlyReportWorkbook(summary, shifts, monthLabel);
-      await downloadWorkbook(workbook, `clockly-${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}.xlsx`);
+      await downloadWorkbook(workbook, `clockly-${year}-${String(month + 1).padStart(2, '0')}.xlsx`);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'הייצוא נכשל, נסה/י שוב');
     } finally {
@@ -78,9 +81,9 @@ export function ReportsPage() {
         <h1 className="pt-1 text-center text-lg font-bold">דוחות וייצוא</h1>
 
         <MonthNavigator
-          year={cursor.year}
-          month={cursor.month}
-          onChange={(year, month) => setCursor({ year, month })}
+          year={year}
+          month={month}
+          onChange={setPeriod}
           subLabel={
             startDay !== 1 ? (
               <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
@@ -187,7 +190,7 @@ export function ReportsPage() {
             ))}
           </div>
           {/* Outside .print-report so it stays on screen only, not in the exported PDF. */}
-          <PayslipCompareCard workplaces={payslipWorkplaces} year={cursor.year} month={cursor.month + 1} />
+          <PayslipCompareCard workplaces={payslipWorkplaces} year={year} month={month + 1} />
           </>
         )}
       </div>

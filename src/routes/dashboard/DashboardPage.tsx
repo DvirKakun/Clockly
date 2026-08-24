@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Clock, LogIn, LogOut, Shield, FileText } from 'lucide-react';
@@ -12,11 +12,14 @@ import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { formatCurrency } from '@/lib/format';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
+import { usePeriodStore } from '@/store/periodStore';
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const now = new Date();
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  // Shared with the shifts and reports screens so moving between them keeps the selected month.
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const setPeriod = usePeriodStore((s) => s.setPeriod);
 
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
   const { data: taxProfile } = useTaxProfile();
@@ -28,7 +31,7 @@ export function DashboardPage() {
   // calendar-month fallback range) until it's loaded — otherwise a custom-period user would see
   // the wrong window's totals for a frame. Gate the query on the tax profile being present.
   const startDay = taxProfile?.pay_period_start_day ?? 1;
-  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  const period = payPeriodRange(year, month, startDay);
   const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(
     period.start,
     period.end,
@@ -48,9 +51,9 @@ export function DashboardPage() {
     <PageTransition>
       <div className="flex flex-col gap-5">
         <MonthNavigator
-          year={cursor.year}
-          month={cursor.month}
-          onChange={(year, month) => setCursor({ year, month })}
+          year={year}
+          month={month}
+          onChange={setPeriod}
           subLabel={
             startDay !== 1 ? (
               <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">

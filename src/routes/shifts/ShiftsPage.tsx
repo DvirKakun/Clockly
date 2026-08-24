@@ -11,6 +11,7 @@ import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { isStatutoryHolidayDate } from '@/lib/calc';
 import { formatCurrency } from '@/lib/format';
 import { getMonthGridDays } from '@/lib/calendarGrid';
+import { usePeriodStore } from '@/store/periodStore';
 import {
   todayIso,
   monthRange,
@@ -23,13 +24,17 @@ const VIEW_STORAGE_KEY = 'clockly-shifts-view';
 
 export function ShiftsPage() {
   const navigate = useNavigate();
-  const now = new Date();
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  // Month and selected day are shared app-wide (see periodStore) so opening a shift and coming
+  // back — or saving one — returns to where you were instead of snapping to the current month.
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const setPeriod = usePeriodStore((s) => s.setPeriod);
+  const selectedDate = usePeriodStore((s) => s.selectedDate);
+  const setSelectedDate = usePeriodStore((s) => s.setSelectedDate);
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode) || 'calendar'
   );
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const { start, end } = monthRange(cursor.year, cursor.month);
+  const { start, end } = monthRange(year, month);
 
   const { data: shifts = [], isLoading } = useShiftsForRange(start, end);
   const { data: workplaces = [] } = useWorkplaces();
@@ -61,14 +66,7 @@ export function ShiftsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <MonthNavigator
-          year={cursor.year}
-          month={cursor.month}
-          onChange={(year, month) => {
-            setSelectedDate(null);
-            setCursor({ year, month });
-          }}
-        />
+        <MonthNavigator year={year} month={month} onChange={setPeriod} />
 
         <div className="flex justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
           <button
@@ -94,8 +92,8 @@ export function ShiftsPage() {
         ) : viewMode === 'calendar' ? (
           <>
             <MonthGrid
-              year={cursor.year}
-              month={cursor.month}
+              year={year}
+              month={month}
               shiftsByDate={shiftsByDate}
               workplaceMap={workplaceMap}
               selectedDate={selectedDate}

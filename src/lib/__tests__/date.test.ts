@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDaysIso, monthRange, weeklyOccurrences } from '../date';
+import { addDaysIso, monthRange, stepMonth, weeklyOccurrences } from '../date';
 
 describe('monthRange', () => {
   // These assertions are timezone-independent because monthRange builds boundaries in UTC.
@@ -55,5 +55,32 @@ describe('weeklyOccurrences', () => {
     const result = weeklyOccurrences('2026-01-01', '2027-01-01', 3);
     expect(result).toHaveLength(4);
     expect(result.length).toBeGreaterThan(3);
+  });
+});
+
+describe('stepMonth', () => {
+  it('steps forward within a year', () => {
+    expect(stepMonth(2026, 5, 1)).toEqual({ year: 2026, month: 6 });
+  });
+
+  it('steps back within a year', () => {
+    expect(stepMonth(2026, 5, -1)).toEqual({ year: 2026, month: 4 });
+  });
+
+  it('rolls forward past December into the next January', () => {
+    expect(stepMonth(2026, 11, 1)).toEqual({ year: 2027, month: 0 });
+  });
+
+  it('rolls back before January into the previous December', () => {
+    expect(stepMonth(2026, 0, -1)).toEqual({ year: 2025, month: 11 });
+  });
+
+  it('steps by more than a year in either direction', () => {
+    expect(stepMonth(2026, 0, 13)).toEqual({ year: 2027, month: 1 });
+    expect(stepMonth(2026, 0, -13)).toEqual({ year: 2024, month: 11 });
+  });
+
+  it('is a no-op for a zero delta', () => {
+    expect(stepMonth(2026, 7, 0)).toEqual({ year: 2026, month: 7 });
   });
 });
