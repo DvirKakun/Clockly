@@ -1,7 +1,7 @@
 # Specs — Shift UX Overhaul (branch `feature/shift-ux-overhaul`)
 
-Nine user-reported tasks, each specced separately and shipped as its own phase/commit on this
-branch. Written with the `to-spec` template (Problem → Solution → User Stories → Implementation
+User-reported tasks, each specced separately and shipped as its own phase/commit on this branch.
+Nine were reported together; #10 was added afterwards as a follow-on to #2. Written with the `to-spec` template (Problem → Solution → User Stories → Implementation
 Decisions → Testing Decisions → Out of Scope → Further Notes).
 
 > **Issue tracker.** This project has no configured issue tracker / triage-label vocabulary, so
@@ -19,6 +19,7 @@ Decisions → Testing Decisions → Out of Scope → Further Notes).
 | 7 | The cyan summary card's affordance | [07-summary-card-affordance.md](07-summary-card-affordance.md) | DashboardPage |
 | 8 | Surface bonuses & tips on Home and in the summary | [08-bonuses-visibility.md](08-bonuses-visibility.md) | DashboardPage, summary component |
 | 9 | Tapping a workplace opens that workplace's report | [09-workplace-report.md](09-workplace-report.md) | DashboardPage, ReportsPage |
+| 10 | The + button opens on the month being viewed | [10-add-shift-uses-viewed-month.md](10-add-shift-uses-viewed-month.md) | BottomNav |
 
 ## Shared seams introduced
 
@@ -28,7 +29,7 @@ logic is pushed down into pure modules and asserted there. That is the highest a
 
 | Seam | Module | Serves |
 |---|---|---|
-| A | `src/store/periodStore.ts` — app-wide selected `{year, month}` | 2, 7, 9 |
+| A | `src/store/periodStore.ts` — app-wide selected `{year, month}` | 2, 7, 9, 10 |
 | B | `src/lib/shiftMetrics.ts` — metric vocabulary, extraction, formatting, cycling | 3, 5 |
 | C | `src/lib/calc/monthSummary.ts` — roll-up totals (bonuses, tips, travel, meals, overtime, Shabbat) | 1, 8 |
 | D | `src/components/summary/MonthSummaryDetails.tsx` — one breakdown UI, three call sites | 1, 8, 9 |
