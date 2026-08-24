@@ -1,11 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { WEEKDAY_NAMES_HE } from '@/lib/date';
+import { formatDayLabel } from '@/lib/date';
 import type { ShiftNeighbours } from '@/lib/shiftNavigation';
-
-function dayLabel(iso: string): string {
-  const date = new Date(iso);
-  return `${WEEKDAY_NAMES_HE[date.getDay()]}, ${date.toLocaleDateString('he-IL')}`;
-}
 
 /**
  * Moves between the shifts of the loaded month from inside the shift screen, so reviewing a month
@@ -40,7 +35,7 @@ export function ShiftDayPager({
       />
 
       <div className="flex flex-col items-center">
-        <span className="text-xs font-medium text-black/60 dark:text-white/60">{dayLabel(currentDate)}</span>
+        <span className="text-xs font-medium text-black/60 dark:text-white/60">{formatDayLabel(currentDate)}</span>
         {position !== null && (
           <span className="text-[11px] text-black/35 dark:text-white/35">
             {position} מתוך {total}
@@ -69,7 +64,7 @@ function PagerButton({
       type="button"
       disabled={!target}
       onClick={() => target && onNavigate(target.id)}
-      aria-label={target ? `${label} — ${dayLabel(target.date)}` : `${label} (אין)`}
+      aria-label={target ? `${label} — ${formatDayLabel(target.date)}` : `${label} (אין)`}
       className="flex h-11 w-11 items-center justify-center rounded-full text-black/50 disabled:opacity-25 dark:text-white/50"
     >
       {icon}

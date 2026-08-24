@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, Clock, Coffee, Moon, Pencil, StickyNote } from 'lucide-react';
+import { ChevronRight, Clock, Coffee, FileQuestion, Moon, Pencil, StickyNote } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -17,7 +17,7 @@ import { formatCurrency } from '@/lib/format';
 import { payPeriodRange } from '@/lib/payPeriod';
 import { usePeriodStore } from '@/store/periodStore';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
-import { WEEKDAY_NAMES_HE } from '@/lib/date';
+import { formatDayLabel } from '@/lib/date';
 
 /**
  * What a shift *earned*, rather than the fields it was entered with.
@@ -38,7 +38,7 @@ export function ShiftDetailPage() {
   // entries and the origin stays one step away however far the user paged.
   const goBack = () => (location.key === 'default' ? navigate('/shifts') : navigate(-1));
 
-  const { data: shift } = useShift(id);
+  const { data: shift, isError } = useShift(id);
   const { data: workplaces = [] } = useAllWorkplaces();
   const { data: taxProfile } = useTaxProfile();
 
@@ -65,6 +65,26 @@ export function ShiftDetailPage() {
     onSwipeBack: () => neighbours.previous && navigate(`/shifts/${neighbours.previous.id}`, { replace: true }),
   });
 
+  // useShift queries with .single(), which errors when the row is gone — a deep link to a deleted
+  // shift, or a stale link after deleting one. Without this branch that state renders "loading"
+  // forever, since `data` simply stays undefined.
+  if (isError && !shift) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col gap-4">
+          <DetailHeader onBack={goBack} />
+          <Card className="flex flex-col items-center gap-3 py-10 text-center">
+            <FileQuestion className="text-black/20 dark:text-white/20" size={32} />
+            <p className="text-sm text-black/60 dark:text-white/60">המשמרת לא נמצאה — ייתכן שנמחקה.</p>
+            <Button variant="secondary" onClick={() => navigate('/shifts')}>
+              חזרה למשמרות
+            </Button>
+          </Card>
+        </div>
+      </PageTransition>
+    );
+  }
+
   if (!shift) {
     return (
       <PageTransition>
@@ -76,7 +96,6 @@ export function ShiftDetailPage() {
     );
   }
 
-  const date = new Date(shift.date);
   const isOpen = !shift.end_time;
 
   return (
@@ -100,7 +119,7 @@ export function ShiftDetailPage() {
               <div>
                 <p className="font-semibold">{workplace?.name ?? 'לא ידוע'}</p>
                 <p className="text-xs text-black/50 dark:text-white/50">
-                  {WEEKDAY_NAMES_HE[date.getDay()]}, {date.toLocaleDateString('he-IL')}
+                  {formatDayLabel(shift.date)}
                 </p>
               </div>
             </div>

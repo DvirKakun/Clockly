@@ -25,6 +25,16 @@ export function stepMonth(year: number, month: number, delta: number): { year: n
   return { year: Math.floor(absolute / 12), month: ((absolute % 12) + 12) % 12 };
 }
 
+/**
+ * "ראשון, 2.3.2026" — the weekday-and-date label used by the shift list, the calendar's day panel,
+ * the day pager and the shift summary. Was written out at each of those call sites; one home means
+ * they cannot drift apart.
+ */
+export function formatDayLabel(iso: string): string {
+  const date = new Date(iso);
+  return `${WEEKDAY_NAMES_HE[date.getDay()]}, ${date.toLocaleDateString('he-IL')}`;
+}
+
 export function todayIso(): string {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);

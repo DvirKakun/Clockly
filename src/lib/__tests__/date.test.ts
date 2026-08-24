@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDaysIso, defaultDateForPeriod, monthRange, stepMonth, weeklyOccurrences } from '../date';
+import { addDaysIso, defaultDateForPeriod, formatDayLabel, monthRange, stepMonth, weeklyOccurrences } from '../date';
 import { payPeriodRange } from '../payPeriod';
 
 describe('monthRange', () => {
@@ -124,5 +124,21 @@ describe('defaultDateForPeriod', () => {
   it('handles a January and a December cursor', () => {
     expect(defaultDateForPeriod(2026, 0, null, today)).toBe('2026-01-01');
     expect(defaultDateForPeriod(2026, 11, null, today)).toBe('2026-12-01');
+  });
+});
+
+describe('formatDayLabel', () => {
+  it('names the weekday and the date', () => {
+    // 2026-03-02 is a Monday -> "שני" in the Sunday-first Hebrew week.
+    expect(formatDayLabel('2026-03-02')).toContain('שני');
+    expect(formatDayLabel('2026-03-02')).toContain(',');
+  });
+
+  it('names Saturday correctly, which the Shabbat rules depend on reading right', () => {
+    expect(formatDayLabel('2026-03-07')).toContain('שבת');
+  });
+
+  it('names Sunday, the first day of the Israeli week', () => {
+    expect(formatDayLabel('2026-03-01')).toContain('ראשון');
   });
 });

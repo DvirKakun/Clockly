@@ -27,6 +27,7 @@ import { usePeriodStore } from '@/store/periodStore';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import {
   todayIso,
+  formatDayLabel,
   MONTH_NAMES_HE,
   WEEKDAY_NAMES_HE as weekdayNames,
   WEEKDAY_SHORT_HE as weekdayShort,
@@ -179,7 +180,7 @@ export function ShiftsPage() {
             {grouped.map(([date, dayShifts]) => (
               <div key={date}>
                 <p className="mb-1.5 px-1 text-xs font-medium text-black/40 dark:text-white/40">
-                  {weekdayNames[new Date(date).getDay()]}, {new Date(date).toLocaleDateString('he-IL')}
+                  {formatDayLabel(date)}
                 </p>
                 <div className="flex flex-col gap-2">
                   {dayShifts.map((shift) => (
@@ -377,7 +378,7 @@ function SelectedDayPanel({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-medium text-black/40 dark:text-white/40">
-          {weekdayNames[new Date(date).getDay()]}, {new Date(date).toLocaleDateString('he-IL')}
+          {formatDayLabel(date)}
         </p>
         <button onClick={onAddShift} className="flex items-center gap-1 text-xs font-medium text-brand-500">
           <Plus size={14} /> הוספת משמרת
