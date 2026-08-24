@@ -8,11 +8,18 @@ import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useAllWorkplaces, useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import { useTaxProfile } from '@/hooks/useTaxProfile';
+import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
+import { ShiftDayPager } from '@/components/shifts/ShiftDayPager';
+import { resolveShiftNeighbours } from '@/lib/shiftNavigation';
+import { payPeriodRange } from '@/lib/payPeriod';
+import { usePeriodStore } from '@/store/periodStore';
 import {
   useCreateShift,
   useCreateShifts,
   useDeleteShift,
   useShift,
+  useShiftsForRange,
   useUpdateShift,
   type ShiftFormValues,
   type ShiftWithBreaks,
@@ -154,6 +161,19 @@ function ShiftForm({
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Paging reads the shifts already cached for the selected period — the same query the shifts
+  // screen runs, so this resolves from cache and costs no extra fetch.
+  const periodYear = usePeriodStore((s) => s.year);
+  const periodMonth = usePeriodStore((s) => s.month);
+  const { data: taxProfile } = useTaxProfile();
+  const period = payPeriodRange(periodYear, periodMonth, taxProfile?.pay_period_start_day ?? 1);
+  const { data: periodShifts = [] } = useShiftsForRange(period.start, period.end, isEdit && !!taxProfile);
+  const neighbours = useMemo(
+    () => resolveShiftNeighbours(periodShifts, id),
+    [periodShifts, id]
+  );
 
   // Crossing midnight is a pure function of the two time fields — never a manual choice.
   const crossesMidnight = endTime !== '' && endTime <= startTime;
@@ -167,6 +187,32 @@ function ShiftForm({
     () => shiftPartiallyOverlapsShabbat(date, startTime, endTime, crossesMidnight),
     [date, startTime, endTime, crossesMidnight]
   );
+
+  // Paging is the first action in this form that can discard edits without leaving the screen,
+  // so it has to know whether anything changed. Compared against a snapshot taken on mount;
+  // the component is keyed by shift id, so it remounts (and re-snapshots) per shift.
+  const currentSnapshot = JSON.stringify({
+    workplaceId, date, startTime, endTime, dayTypeChoice, bonuses, tips, travel, meal, notes, breaks,
+  });
+  const [initialSnapshot] = useState(() => currentSnapshot);
+  const isDirty = currentSnapshot !== initialSnapshot;
+
+  function navigateToShift(shiftId: string) {
+    // replace, not push: paging through fifteen shifts must not bury the shifts screen fifteen
+    // entries deep, so Back still exits to the list in one press.
+    navigate(`/shifts/${shiftId}/edit`, { replace: true });
+  }
+
+  function requestNavigate(shiftId: string) {
+    if (isDirty) setPendingNavigation(shiftId);
+    else navigateToShift(shiftId);
+  }
+
+  const swipeHandlers = useHorizontalSwipe({
+    enabled: isEdit,
+    onSwipeForward: () => neighbours.next && requestNavigate(neighbours.next.id),
+    onSwipeBack: () => neighbours.previous && requestNavigate(neighbours.previous.id),
+  });
 
   const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
   const isSelectedWorkplaceArchived = isEdit && !!selectedWorkplace?.is_archived;
@@ -269,8 +315,12 @@ function ShiftForm({
 
   return (
     <PageTransition>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" {...swipeHandlers}>
         <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+
+        {isEdit && (
+          <ShiftDayPager neighbours={neighbours} currentDate={date} onNavigate={requestNavigate} />
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">
@@ -532,6 +582,20 @@ function ShiftForm({
             </Button>
           )}
         </form>
+
+        <ConfirmDialog
+          open={!!pendingNavigation}
+          title="יש שינויים שלא נשמרו"
+          message="המעבר למשמרת אחרת יבטל את השינויים שביצעת במשמרת הזו."
+          confirmLabel="מעבר בלי לשמור"
+          cancelLabel="הישארות"
+          onConfirm={() => {
+            const target = pendingNavigation;
+            setPendingNavigation(null);
+            if (target) navigateToShift(target);
+          }}
+          onCancel={() => setPendingNavigation(null)}
+        />
 
         <ConfirmDialog
           open={confirmDelete}
