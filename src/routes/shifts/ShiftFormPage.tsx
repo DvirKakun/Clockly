@@ -20,6 +20,7 @@ import {
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
+import { formValueToNumber, numberToFormValue } from '@/lib/formNumber';
 import { todayIso, weeklyOccurrences } from '@/lib/date';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 
@@ -133,21 +134,15 @@ function ShiftForm({
   const [startTime, setStartTime] = useState(existing ? existing.start_time.slice(0, 5) : '09:00');
   const [endTime, setEndTime] = useState(existing ? (existing.end_time?.slice(0, 5) ?? '17:00') : '17:00');
   const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>(existing ? (existing.day_type as DayType) : 'auto');
-  const [bonuses, setBonuses] = useState(existing ? String(existing.bonuses) : '0');
-  const [tips, setTips] = useState(existing ? String(existing.tips) : '0');
+  const [bonuses, setBonuses] = useState(numberToFormValue(existing?.bonuses));
+  const [tips, setTips] = useState(numberToFormValue(existing?.tips));
   const [travel, setTravel] = useState(
-    existing
-      ? String(existing.travel_reimbursement)
-      : defaultWorkplace
-        ? String(travelDefaultFor(defaultWorkplace))
-        : '0'
+    numberToFormValue(
+      existing ? existing.travel_reimbursement : defaultWorkplace ? travelDefaultFor(defaultWorkplace) : 0
+    )
   );
   const [meal, setMeal] = useState(
-    existing
-      ? String(existing.meal_deduction)
-      : defaultWorkplace?.meal_deduction_default != null
-        ? String(defaultWorkplace.meal_deduction_default)
-        : '0'
+    numberToFormValue(existing ? existing.meal_deduction : (defaultWorkplace?.meal_deduction_default ?? 0))
   );
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [breaks, setBreaks] = useState<BreakField[]>(
@@ -211,10 +206,10 @@ function ShiftForm({
     if (isEdit) return; // don't override a saved shift's own recorded travel/meal values
     const workplace = workplaces.find((w) => w.id === newWorkplaceId);
     if (workplace) {
-      setTravel(String(travelDefaultFor(workplace)));
+      setTravel(numberToFormValue(travelDefaultFor(workplace)));
     }
     if (workplace?.meal_deduction_default != null) {
-      setMeal(String(workplace.meal_deduction_default));
+      setMeal(numberToFormValue(workplace.meal_deduction_default));
     }
   }
 
@@ -227,10 +222,10 @@ function ShiftForm({
       start_time: startTime,
       end_time: endTime,
       crosses_midnight: crossesMidnight,
-      bonuses: Number(bonuses) || 0,
-      tips: Number(tips) || 0,
-      travel_reimbursement: Number(travel) || 0,
-      meal_deduction: Number(meal) || 0,
+      bonuses: formValueToNumber(bonuses),
+      tips: formValueToNumber(tips),
+      travel_reimbursement: formValueToNumber(travel),
+      meal_deduction: formValueToNumber(meal),
       other_deduction: 0,
       notes: notes || null,
       breaks,
@@ -476,10 +471,38 @@ function ShiftForm({
           <Card className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">תוספות וניכויים</h2>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="בונוס (₪)" type="number" value={bonuses} onChange={(e) => setBonuses(e.target.value)} />
-              <Input label="טיפים (₪)" type="number" value={tips} onChange={(e) => setTips(e.target.value)} />
-              <Input label="נסיעות (₪)" type="number" value={travel} onChange={(e) => setTravel(e.target.value)} />
-              <Input label="ניכוי ארוחות (₪)" type="number" value={meal} onChange={(e) => setMeal(e.target.value)} />
+              <Input
+                label="בונוס (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={bonuses}
+                onChange={(e) => setBonuses(e.target.value)}
+              />
+              <Input
+                label="טיפים (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={tips}
+                onChange={(e) => setTips(e.target.value)}
+              />
+              <Input
+                label="נסיעות (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={travel}
+                onChange={(e) => setTravel(e.target.value)}
+              />
+              <Input
+                label="ניכוי ארוחות (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={meal}
+                onChange={(e) => setMeal(e.target.value)}
+              />
             </div>
             <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
               דמי הנסיעות וניכוי הארוחות ממולאים אוטומטית לפי ההגדרות במקום העבודה (דמי
