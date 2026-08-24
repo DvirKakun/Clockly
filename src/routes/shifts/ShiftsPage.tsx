@@ -4,6 +4,7 @@ import { CalendarClock, Calendar, ChartColumn, List, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
+import { MetricSwitcher } from '@/components/shifts/MetricSwitcher';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { useShiftsForRange, type ShiftWithBreaks } from '@/hooks/useShifts';
@@ -11,9 +12,16 @@ import { useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
+import type { ShiftGrossResult } from '@/lib/calc/types';
 import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { isStatutoryHolidayDate } from '@/lib/calc';
-import { formatCurrency } from '@/lib/format';
+import {
+  dayMetricAriaLabel,
+  dayMetricDisplay,
+  parseShiftMetric,
+  shiftMetricDisplay,
+  type ShiftMetric,
+} from '@/lib/shiftMetrics';
 import { getMonthGridDays } from '@/lib/calendarGrid';
 import { usePeriodStore } from '@/store/periodStore';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
@@ -26,6 +34,7 @@ import {
 
 type ViewMode = 'calendar' | 'list';
 const VIEW_STORAGE_KEY = 'clockly-shifts-view';
+const METRIC_STORAGE_KEY = 'clockly-shift-metric';
 
 export function ShiftsPage() {
   const navigate = useNavigate();
@@ -40,6 +49,8 @@ export function ShiftsPage() {
     () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode) || 'calendar'
   );
   const [summaryOpen, setSummaryOpen] = useState(false);
+  // Shared by both views and remembered, like the calendar/list toggle above it.
+  const [metric, setMetric] = useState<ShiftMetric>(() => parseShiftMetric(localStorage.getItem(METRIC_STORAGE_KEY)));
 
   const { data: workplaces = [] } = useWorkplaces();
   const { data: taxProfile } = useTaxProfile();
@@ -76,6 +87,11 @@ export function ShiftsPage() {
   function changeView(mode: ViewMode) {
     setViewMode(mode);
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
+  }
+
+  function changeMetric(next: ShiftMetric) {
+    setMetric(next);
+    localStorage.setItem(METRIC_STORAGE_KEY, next);
   }
 
   const selectedDayShifts = selectedDate ? (shiftsByDate.get(selectedDate) ?? []) : [];
@@ -127,6 +143,8 @@ export function ShiftsPage() {
           </button>
         </div>
 
+        <MetricSwitcher metric={metric} onChange={changeMetric} />
+
         {isLoading ? (
           <p className="py-8 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
         ) : viewMode === 'calendar' ? (
@@ -138,12 +156,14 @@ export function ShiftsPage() {
               workplaceMap={workplaceMap}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
+              metric={metric}
             />
             {selectedDate && (
               <SelectedDayPanel
                 date={selectedDate}
                 dayShifts={selectedDayShifts}
                 workplaceMap={workplaceMap}
+                metric={metric}
                 onOpenShift={(id) => navigate(`/shifts/${id}/edit`)}
                 onAddShift={() => navigate('/shifts/new', { state: { date: selectedDate } })}
               />
@@ -167,6 +187,7 @@ export function ShiftsPage() {
                       key={shift.id}
                       shift={shift}
                       workplace={workplaceMap.get(shift.workplace_id)}
+                      metric={metric}
                       onClick={() => navigate(`/shifts/${shift.id}/edit`)}
                     />
                   ))}
@@ -197,10 +218,12 @@ export function ShiftsPage() {
 function ShiftRow({
   shift,
   workplace,
+  metric,
   onClick,
 }: {
   shift: ShiftWithBreaks;
   workplace: Workplace | undefined;
+  metric: ShiftMetric;
   onClick: () => void;
 }) {
   const input = shiftRowToInput(shift);
@@ -217,7 +240,7 @@ function ShiftRow({
             </p>
           </div>
         </div>
-        {gross && <span className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>}
+        {gross && <span className="text-sm font-semibold">{shiftMetricDisplay(metric, gross)}</span>}
       </Card>
     </button>
   );
@@ -230,6 +253,7 @@ function MonthGrid({
   workplaceMap,
   selectedDate,
   onSelectDate,
+  metric,
 }: {
   year: number;
   month: number;
@@ -237,9 +261,27 @@ function MonthGrid({
   workplaceMap: Map<string, Workplace>;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
+  metric: ShiftMetric;
 }) {
   const days = useMemo(() => getMonthGridDays(year, month), [year, month]);
   const today = todayIso();
+
+  // Computed once per data change rather than per render: a month grid is ~35 cells, and
+  // running the gross engine for each of them on every re-render (metric switch, day select)
+  // is work the user pays for on a phone.
+  const grossByDate = useMemo(() => {
+    const map = new Map<string, ShiftGrossResult[]>();
+    for (const [date, dayShifts] of shiftsByDate) {
+      const results: ShiftGrossResult[] = [];
+      for (const shift of dayShifts) {
+        const workplace = workplaceMap.get(shift.workplace_id);
+        const input = shiftRowToInput(shift);
+        if (workplace && input) results.push(computeShiftGross(input, workplaceToRateProfile(workplace)));
+      }
+      map.set(date, results);
+    }
+    return map;
+  }, [shiftsByDate, workplaceMap]);
 
   // A true 44px touch target per cell isn't physically achievable in a 7-column grid on the
   // narrowest supported phones (360px) with any reasonable margins — even zero padding only
@@ -263,13 +305,20 @@ function MonthGrid({
           const isSelected = selectedDate === day.iso;
           const isToday = day.iso === today;
 
+          // Formatted by the same pure module the list rows use, so the two views can never
+          // disagree about what a metric means.
+          const dayGross = grossByDate.get(day.iso) ?? [];
+          const value = day.isCurrentMonth ? dayMetricDisplay(metric, dayGross) : null;
+          const valueLabel = day.isCurrentMonth ? dayMetricAriaLabel(metric, dayGross) : null;
+
           return (
             <button
               key={day.iso}
               type="button"
               onClick={() => onSelectDate(day.iso)}
               disabled={!day.isCurrentMonth}
-              className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-xl text-xs transition-colors ${
+              aria-label={`${weekdayNames[dow]} ${day.dayOfMonth}${valueLabel ? `, ${valueLabel}` : ''}`}
+              className={`flex aspect-square flex-col items-center justify-center gap-px rounded-xl text-xs transition-colors ${
                 !day.isCurrentMonth
                   ? 'text-black/15 dark:text-white/15'
                   : isSelected
@@ -280,12 +329,22 @@ function MonthGrid({
               }`}
             >
               <span className={isToday && !isSelected ? 'font-bold text-brand-500' : ''}>{day.dayOfMonth}</span>
+              {value !== null && (
+                <span
+                  dir="ltr"
+                  className={`text-[9px] font-semibold leading-none ${
+                    isSelected ? 'text-white' : 'text-brand-600 dark:text-brand-400'
+                  }`}
+                >
+                  {value}
+                </span>
+              )}
               {dayShifts.length > 0 && (
                 <span className="flex gap-0.5">
                   {dayShifts.slice(0, 3).map((s) => (
                     <span
                       key={s.id}
-                      className="h-1.5 w-1.5 rounded-full"
+                      className="h-1 w-1 rounded-full"
                       style={{ backgroundColor: isSelected ? 'white' : (workplaceMap.get(s.workplace_id)?.color ?? '#999') }}
                     />
                   ))}
@@ -303,12 +362,14 @@ function SelectedDayPanel({
   date,
   dayShifts,
   workplaceMap,
+  metric,
   onOpenShift,
   onAddShift,
 }: {
   date: string;
   dayShifts: ShiftWithBreaks[];
   workplaceMap: Map<string, Workplace>;
+  metric: ShiftMetric;
   onOpenShift: (id: string) => void;
   onAddShift: () => void;
 }) {
@@ -331,6 +392,7 @@ function SelectedDayPanel({
               key={shift.id}
               shift={shift}
               workplace={workplaceMap.get(shift.workplace_id)}
+              metric={metric}
               onClick={() => onOpenShift(shift.id)}
             />
           ))}
