@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Clock, Coffee, FileQuestion, Moon, Pencil, StickyNote } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +9,7 @@ import { useShift, useShiftsForRange } from '@/hooks/useShifts';
 import { useAllWorkplaces } from '@/hooks/useWorkplaces';
 import { useTaxProfile } from '@/hooks/useTaxProfile';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
+import { useGoBack } from '@/hooks/useGoBack';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
 import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { buildShiftBreakdown } from '@/lib/shiftBreakdown';
@@ -29,14 +30,9 @@ import { formatDayLabel } from '@/lib/date';
 export function ShiftDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Go back to wherever this was opened from — the shifts list, or the report. React Router
-  // gives the very first history entry the key 'default', so that identifies a deep link, where
-  // there is nothing to go back to and navigate(-1) would either leave the app or (in the
-  // installed PWA) do nothing at all. Paging between shifts uses replace, so it never adds
-  // entries and the origin stays one step away however far the user paged.
-  const goBack = () => (location.key === 'default' ? navigate('/shifts') : navigate(-1));
+  // Back to wherever this was opened from — the shifts list or the report — with a fallback
+  // for a deep link, where there is no in-app history to consume.
+  const goBack = useGoBack('/shifts');
 
   const { data: shift, isError } = useShift(id);
   const { data: workplaces = [] } = useAllWorkplaces();

@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useAllWorkplaces, useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import { useGoBack } from '@/hooks/useGoBack';
 import {
   useCreateShift,
   useCreateShifts,
@@ -63,7 +64,7 @@ function travelDefaultFor(workplace: { travel_daily_cost: number | null }): numb
 export function ShiftFormPage() {
   const { id } = useParams();
   const isEdit = !!id;
-  const navigate = useNavigate();
+  const goBack = useGoBack(id ? `/shifts/${id}` : '/shifts');
 
   const { data: existing } = useShift(id);
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
@@ -76,7 +77,7 @@ export function ShiftFormPage() {
     return (
       <PageTransition>
         <div className="flex flex-col gap-4">
-          <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+          <FormHeader isEdit={isEdit} onBack={goBack} />
           <p className="py-12 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
         </div>
       </PageTransition>
@@ -192,6 +193,9 @@ function ShiftForm({
     return isDirty && currentLocation.pathname !== nextLocation.pathname;
   });
 
+  // Same guard. This is a real navigation, so the blocker above still intercepts it when dirty.
+  const goBack = useGoBack(isEdit && id ? `/shifts/${id}` : '/shifts');
+
   const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
   const isSelectedWorkplaceArchived = isEdit && !!selectedWorkplace?.is_archived;
 
@@ -301,7 +305,7 @@ function ShiftForm({
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+        <FormHeader isEdit={isEdit} onBack={goBack} />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">
