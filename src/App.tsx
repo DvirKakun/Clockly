@@ -1,5 +1,12 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import {
+  Navigate,
+  Outlet,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+} from 'react-router-dom';
 import { useAuthListener } from '@/hooks/useAuthListener';
 import { useAuthStore } from '@/store/authStore';
 import { SplashScreen } from '@/components/layout/SplashScreen';
@@ -20,6 +27,7 @@ const AuthCallbackPage = lazy(() =>
 const DashboardPage = lazy(() => import('@/routes/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ShiftsPage = lazy(() => import('@/routes/shifts/ShiftsPage').then((m) => ({ default: m.ShiftsPage })));
 const ShiftFormPage = lazy(() => import('@/routes/shifts/ShiftFormPage').then((m) => ({ default: m.ShiftFormPage })));
+const ShiftDetailPage = lazy(() => import('@/routes/shifts/ShiftDetailPage').then((m) => ({ default: m.ShiftDetailPage })));
 const WorkplacesPage = lazy(() => import('@/routes/workplaces/WorkplacesPage').then((m) => ({ default: m.WorkplacesPage })));
 const SettingsPage = lazy(() => import('@/routes/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const RightsPage = lazy(() => import('@/routes/rights/RightsPage').then((m) => ({ default: m.RightsPage })));
@@ -38,7 +46,12 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App() {
+/**
+ * Holds what used to live in App's body: the auth listener, the splash gate while auth resolves,
+ * scroll management, and the Suspense boundary for the lazy route chunks. It is a route element
+ * rather than a wrapper around <Routes> because the app uses a data router (see below).
+ */
+function RootLayout() {
   useAuthListener();
   const isInitializing = useAuthStore((s) => s.isInitializing);
 
@@ -47,38 +60,60 @@ export default function App() {
   return (
     <Suspense fallback={<SplashScreen />}>
       <ScrollManager />
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <LoginPage />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PublicOnlyRoute>
-              <SignupPage />
-            </PublicOnlyRoute>
-          }
-        />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/auth/callback" element={<AuthCallbackPage />} />
-        <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/shifts" element={<ShiftsPage />} />
-          <Route path="/shifts/new" element={<ShiftFormPage />} />
-          <Route path="/shifts/:id/edit" element={<ShiftFormPage />} />
-          <Route path="/workplaces" element={<WorkplacesPage />} />
-          <Route path="/rights" element={<RightsPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Outlet />
     </Suspense>
   );
+}
+
+/**
+ * A data router (createBrowserRouter), not the classic <BrowserRouter>.
+ *
+ * The reason is `useBlocker`, which React Router only provides on a data router: without it there
+ * is no supported way to intercept a Back navigation, so the shift form could warn about unsaved
+ * changes when paging between shifts but not when the user pressed Back — browser back, or the
+ * Android system back button in the installed PWA — which silently discarded their edits.
+ *
+ * The route tree is declared with createRoutesFromElements so it stays identical to the JSX it
+ * replaced, rather than being rewritten as route objects.
+ */
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootLayout />}>
+      <Route
+        path="/login"
+        element={
+          <PublicOnlyRoute>
+            <LoginPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PublicOnlyRoute>
+            <SignupPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route element={<ProtectedLayout />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/shifts" element={<ShiftsPage />} />
+        <Route path="/shifts/new" element={<ShiftFormPage />} />
+        <Route path="/shifts/:id" element={<ShiftDetailPage />} />
+        <Route path="/shifts/:id/edit" element={<ShiftFormPage />} />
+        <Route path="/workplaces" element={<WorkplacesPage />} />
+        <Route path="/rights" element={<RightsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Route>
+  )
+);
+
+export default function App() {
+  return <RouterProvider router={router} />;
 }

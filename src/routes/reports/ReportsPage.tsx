@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FileSpreadsheet, Printer, FileText } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FileSpreadsheet, Printer, FileText, X, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/layout/PageTransition';
@@ -15,10 +16,24 @@ import { MONTH_NAMES_HE } from '@/lib/date';
 import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { PayslipCompareCard, type PayslipWorkplace } from './PayslipCompareCard';
+import { usePeriodStore } from '@/store/periodStore';
+import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
+import { filterSummaryToWorkplace } from '@/lib/workplaceReport';
+import { buildShiftBreakdown, formatBreakDuration } from '@/lib/shiftBreakdown';
+import type { ShiftGrossResult } from '@/lib/calc/types';
+import { SummaryRow } from '@/components/summary/MonthSummaryDetails';
 
 export function ReportsPage() {
-  const now = new Date();
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const navigate = useNavigate();
+  // Shared with the dashboard and shifts screens (see periodStore).
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const setPeriod = usePeriodStore((s) => s.setPeriod);
+  // A URL param, unlike the month: the filter is a real view identity worth linking to and
+  // worth having in history, and it is set by a deliberate navigation rather than by repeated
+  // stepping, so it doesn't pollute the back stack.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const workplaceFilter = searchParams.get('workplace');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -27,19 +42,38 @@ export function ReportsPage() {
 
   // Falls back to a calendar month (start day 1) until the tax profile loads.
   const startDay = taxProfile?.pay_period_start_day ?? 1;
-  const period = payPeriodRange(cursor.year, cursor.month, startDay);
+  const period = payPeriodRange(year, month, startDay);
   // Plain "month year" only. The LTR date range is rendered as its own dir="ltr" element below —
   // never inlined into this Hebrew string, or the bidi algorithm flips it to end–start on screen.
-  const monthLabel = `${MONTH_NAMES_HE[cursor.month]} ${cursor.year}`;
+  const monthLabel = `${MONTH_NAMES_HE[month]} ${year}`;
 
   // Gate the fetch on the tax profile (which holds the pay-period start day) so a custom-period
   // user never sees a calendar-month window's report for a frame.
   const { data: shifts = [], isLoading: loadingShifts } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
-  const summary = useMemo(() => {
+  const fullSummary = useMemo(() => {
     if (!taxProfile || workplaces.length === 0) return null;
     return computeMonthSummary(workplaces, shifts, taxProfile);
   }, [workplaces, shifts, taxProfile]);
+
+  // An unknown or archived id falls back to the unfiltered report rather than an empty screen,
+  // so filteredWorkplace is derived from what actually survived the filter.
+  const summary = useMemo(
+    () => (fullSummary ? filterSummaryToWorkplace(fullSummary, workplaceFilter) : null),
+    [fullSummary, workplaceFilter]
+  );
+  const filteredWorkplace =
+    summary && summary.byWorkplace.length === 1 && workplaceFilter === summary.byWorkplace[0].workplace.id
+      ? summary.byWorkplace[0].workplace
+      : null;
+  const isFiltered = !!filteredWorkplace;
+  // The tax caveat only applies when there is more than one employer to coordinate between.
+  const hasMultipleWorkplaces = (fullSummary?.byWorkplace.length ?? 0) > 1;
+
+  const reportShifts = useMemo(
+    () => (filteredWorkplace ? shifts.filter((s) => s.workplace_id === filteredWorkplace.id) : shifts),
+    [shifts, filteredWorkplace]
+  );
 
   const isLoading = loadingWorkplaces || loadingShifts;
 
@@ -55,6 +89,14 @@ export function ReportsPage() {
     }));
   }, [summary, taxProfile]);
 
+  // The sanctioned per-employer figure: computed "as if this were the person's only income",
+  // exact for a single-job user and an estimate for a multi-job one (see payslipCompare).
+  const workplaceExpected = useMemo(() => {
+    if (!filteredWorkplace || !summary || !taxProfile) return null;
+    const entry = summary.byWorkplace[0];
+    return expectedForWorkplace(entry.gross, taxProfileRowToTaxProfile(taxProfile));
+  }, [filteredWorkplace, summary, taxProfile]);
+
   async function handleExportExcel() {
     if (!summary) return;
     setExporting(true);
@@ -63,8 +105,9 @@ export function ReportsPage() {
       // Lazy-loaded: exceljs is ~260kB gzipped and would otherwise download just to view this
       // page, even for users who never export.
       const { buildMonthlyReportWorkbook, downloadWorkbook } = await import('@/lib/export/excelExport');
-      const workbook = await buildMonthlyReportWorkbook(summary, shifts, monthLabel);
-      await downloadWorkbook(workbook, `clockly-${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}.xlsx`);
+      const workbook = await buildMonthlyReportWorkbook(summary, reportShifts, monthLabel);
+      const suffix = filteredWorkplace ? `-${filteredWorkplace.name}` : '';
+      await downloadWorkbook(workbook, `clockly-${year}-${String(month + 1).padStart(2, '0')}${suffix}.xlsx`);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'הייצוא נכשל, נסה/י שוב');
     } finally {
@@ -78,9 +121,9 @@ export function ReportsPage() {
         <h1 className="pt-1 text-center text-lg font-bold">דוחות וייצוא</h1>
 
         <MonthNavigator
-          year={cursor.year}
-          month={cursor.month}
-          onChange={(year, month) => setCursor({ year, month })}
+          year={year}
+          month={month}
+          onChange={setPeriod}
           subLabel={
             startDay !== 1 ? (
               <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
@@ -89,6 +132,23 @@ export function ReportsPage() {
             ) : undefined
           }
         />
+
+        {filteredWorkplace && (
+          <div className="flex items-center justify-between rounded-2xl bg-brand-500/10 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: filteredWorkplace.color }} />
+              <span className="text-sm font-medium">מסונן: {filteredWorkplace.name}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchParams({}, { replace: true })}
+              aria-label="הצגת כל מקומות העבודה"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-black/50 dark:text-white/50"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button variant="secondary" fullWidth onClick={handleExportExcel} disabled={!summary || exporting}>
@@ -115,79 +175,87 @@ export function ReportsPage() {
         ) : (
           <>
           <div className="print-report flex flex-col gap-4">
-            <h2 className="hidden text-xl font-bold print:block">דוח משכורת — {monthLabel}</h2>
+            <h2 className="hidden text-xl font-bold print:block">
+              דוח משכורת — {monthLabel}
+              {filteredWorkplace ? ` — ${filteredWorkplace.name}` : ''}
+            </h2>
 
-            <Card>
-              <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">סיכום</h2>
-              <ReportRow label="סה&quot;כ ברוטו" value={summary.totalGross} />
-              <ReportRow label="מס הכנסה" value={-summary.net.incomeTax} />
-              <ReportRow label="ביטוח לאומי" value={-summary.net.nationalInsurance} />
-              <ReportRow label="דמי בריאות" value={-summary.net.healthTax} />
-              {summary.net.pensionEmployee > 0 && <ReportRow label="פנסיה" value={-summary.net.pensionEmployee} />}
-              {summary.net.kerenHishtalmutEmployee > 0 && (
-                <ReportRow label="קרן השתלמות" value={-summary.net.kerenHishtalmutEmployee} />
-              )}
-              <ReportRow label="החזר נסיעות" value={summary.totalTravelReimbursement} />
-              <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
-                <span>סה&quot;כ לתשלום</span>
-                <span>{formatCurrency(summary.takeHomePay)}</span>
-              </div>
-            </Card>
+            {/* The same itemized breakdown the shifts screen's summary sheet renders. The old
+                report stopped at gross + statutory deductions, so bonuses, tips, meal deductions,
+                overtime and Shabbat pay never appeared. showByWorkplace is off because the
+                per-workplace shift tables directly below already break the month down by employer.
+                When filtered to one workplace the aggregate deductions are suppressed — they are
+                computed across every employer and would be meaningless beside one job's gross. */}
+            <MonthSummaryDetails summary={summary} showByWorkplace={false} showDeductions={!isFiltered} />
+
+            {isFiltered && workplaceExpected && (
+              <Card>
+                <h2 className="mb-3 text-sm font-semibold text-black/60 dark:text-white/60">
+                  אומדן תלוש למקום עבודה זה
+                </h2>
+                <SummaryRow label="מס הכנסה" value={-workplaceExpected.income_tax} />
+                <SummaryRow label="ביטוח לאומי" value={-workplaceExpected.national_insurance} />
+                <SummaryRow label="דמי בריאות" value={-workplaceExpected.health_tax} />
+                <SummaryRow label="פנסיה" value={-workplaceExpected.pension} />
+                <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
+                  <span>נטו לתשלום</span>
+                  <span dir="ltr">{formatCurrency(workplaceExpected.net)}</span>
+                </div>
+                {hasMultipleWorkplaces && (
+                  <p className="mt-3 rounded-2xl bg-black/[0.03] px-3 py-2 text-xs text-black/50 dark:bg-white/[0.04] dark:text-white/50">
+                    מדרגות המס ותקרת הביטוח הלאומי משותפות לכל המעסיקים, ולכן זהו אומדן שמחושב כאילו
+                    זו ההכנסה היחידה — הניכוי בפועל תלוי בתיאום המס שלך. הנטו המשולב לחודש מופיע
+                    בדוח ללא הסינון.
+                  </p>
+                )}
+              </Card>
+            )}
 
             {summary.byWorkplace.map(({ workplace, gross }) => (
-              <Card key={workplace.id} className="overflow-x-auto">
-                <div className="mb-3 flex items-center gap-2">
+              <Card key={workplace.id}>
+                <div className="mb-2 flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full" style={{ backgroundColor: workplace.color }} />
                   <h2 className="text-sm font-semibold">{workplace.name}</h2>
                 </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-black/40 dark:text-white/40">
-                      <th className="py-1 text-start font-medium">תאריך</th>
-                      <th className="py-1 text-start font-medium">סוג יום</th>
-                      <th className="py-1 text-start font-medium">שעות</th>
-                      <th className="py-1 text-start font-medium">סה&quot;כ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...gross.shiftResults]
-                      .map((shift) => {
-                        const row = shifts.find((s) => s.id === shift.shiftId);
-                        return { shift, date: row?.date ?? '', dayType: row?.day_type };
-                      })
-                      .sort((a, b) => a.date.localeCompare(b.date))
-                      .map(({ shift, date, dayType }) => (
-                        <tr key={shift.shiftId} className="border-t border-black/5 dark:border-white/10">
-                          {/* dir="ltr" on the number only — putting it on the <td> would also flip
-                              the cell's alignment to the left, colliding the date into the next column. */}
-                          <td className="py-1.5 text-start">
-                            <span dir="ltr">
-                              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
-                            </span>
-                          </td>
-                          <td className="py-1.5 text-start">
-                            {dayType ? DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE] : ''}
-                          </td>
-                          <td className="py-1.5">{shift.hours.payableHours.toFixed(1)}</td>
-                          <td className="py-1.5 font-medium">{formatCurrency(shift.totalGross)}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-black/10 font-semibold dark:border-white/10">
-                      <td className="py-1.5" colSpan={2}>
-                        סה&quot;כ
-                      </td>
-                      <td className="py-1.5">{gross.totalHours.toFixed(1)}</td>
-                      <td className="py-1.5">{formatCurrency(gross.totalGross)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+
+                {/* Deliberately rows, not a wider table. AppShell caps the content column at
+                    max-w-lg (512px) on every device, so the columns this needs — date, day type,
+                    hours, breaks, bonus, tips, travel, total — cannot fit even on desktop; they
+                    would force horizontal scrolling at every width. Stacking the figures under
+                    each date fits them all, and makes each shift a real button rather than a
+                    clickable table row. */}
+                <div className="flex flex-col">
+                  {[...gross.shiftResults]
+                    .map((shift) => {
+                      const row = reportShifts.find((s) => s.id === shift.shiftId);
+                      return { shift, date: row?.date ?? '', dayType: row?.day_type };
+                    })
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map(({ shift, date, dayType }) => (
+                      <ReportShiftRow
+                        key={shift.shiftId}
+                        gross={shift}
+                        date={date}
+                        dayType={dayType}
+                        onOpen={() => navigate(`/shifts/${shift.shiftId}`)}
+                      />
+                    ))}
+                </div>
+
+                <div className="mt-2 flex items-center justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
+                  <span>סה&quot;כ</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-xs font-medium text-black/50 dark:text-white/50" dir="ltr">
+                      {gross.totalHours.toFixed(1)}h
+                    </span>
+                    <span dir="ltr">{formatCurrency(gross.totalGross)}</span>
+                  </span>
+                </div>
               </Card>
             ))}
           </div>
           {/* Outside .print-report so it stays on screen only, not in the exported PDF. */}
-          <PayslipCompareCard workplaces={payslipWorkplaces} year={cursor.year} month={cursor.month + 1} />
+          <PayslipCompareCard workplaces={payslipWorkplaces} year={year} month={month + 1} />
           </>
         )}
       </div>
@@ -195,11 +263,63 @@ export function ReportsPage() {
   );
 }
 
-function ReportRow({ label, value }: { label: string; value: number }) {
+/**
+ * One shift in the report: the date and total on the first line, everything that made up that
+ * total on the second. Tapping opens the shift summary — hence a real button with a chevron and a
+ * press state, rather than a table row that happens to have an onClick.
+ */
+function ReportShiftRow({
+  gross,
+  date,
+  dayType,
+  onOpen,
+}: {
+  gross: ShiftGrossResult;
+  date: string;
+  dayType: string | undefined;
+  onOpen: () => void;
+}) {
+  const breakdown = buildShiftBreakdown(gross);
+  const breakLabel = formatBreakDuration(breakdown.paidBreakHours + breakdown.unpaidBreakHours);
+
   return (
-    <div className="flex justify-between py-1 text-sm">
-      <span className="text-black/60 dark:text-white/60">{label}</span>
-      <span className={value < 0 ? 'text-red-500' : 'font-medium'}>{formatCurrency(value)}</span>
-    </div>
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`פתיחת סיכום המשמרת מתאריך ${date}`}
+      className="flex w-full items-center gap-2 border-t border-black/5 py-2 text-start first:border-0 active:bg-black/[0.03] dark:border-white/10 dark:active:bg-white/[0.04]"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-medium">
+            {/* dir="ltr" on the number only — on the wrapper it would flip the whole line. */}
+            <span dir="ltr">
+              {date ? new Date(date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) : ''}
+            </span>
+            {dayType && dayType !== 'regular' && (
+              <span className="ms-2 rounded-full bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-600 dark:text-brand-400">
+                {DAY_TYPE_LABELS_HE[dayType as keyof typeof DAY_TYPE_LABELS_HE]}
+              </span>
+            )}
+          </span>
+          <span dir="ltr" className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>
+        </div>
+
+        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-black/50 dark:text-white/50">
+          <span dir="ltr">{breakdown.payableHours.toFixed(1)}h</span>
+          {breakLabel && <span>הפסקה {breakLabel}</span>}
+          {breakdown.adjustments.map((adj) => (
+            <span key={adj.key} className={adj.amount < 0 ? 'text-red-500/80' : undefined}>
+              {adj.label}{' '}
+              <span dir="ltr">
+                {adj.amount < 0 ? `-${formatCurrency(Math.abs(adj.amount))}` : formatCurrency(adj.amount)}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <ChevronRight size={15} className="shrink-0 rotate-180 text-black/25 print:hidden dark:text-white/25" />
+    </button>
   );
 }

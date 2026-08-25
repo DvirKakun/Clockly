@@ -13,8 +13,9 @@ import { useLocation, useNavigationType } from 'react-router-dom';
  * navigation time — because navigating from a tall list to a short form shrinks the document and
  * the browser clamps window.scrollY before we could read it, which would save the wrong offset.
  *
- * React Router's built-in <ScrollRestoration> only works with the data router; this is the
- * hand-rolled equivalent for the classic <BrowserRouter> the app uses.
+ * Kept in preference to React Router's built-in <ScrollRestoration> (available now that the app
+ * uses a data router): the built-in reads the offset at navigation time, which is exactly the
+ * clamping bug described above.
  */
 export function ScrollManager() {
   const location = useLocation();

@@ -1,38 +1,67 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Calendar, List, Plus } from 'lucide-react';
+import { CalendarClock, Calendar, ChartColumn, List, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { MonthSummaryDetails } from '@/components/summary/MonthSummaryDetails';
+import { MetricSwitcher } from '@/components/shifts/MetricSwitcher';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { MonthNavigator } from '@/components/ui/MonthNavigator';
 import { useShiftsForRange, type ShiftWithBreaks } from '@/hooks/useShifts';
 import { useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import { useTaxProfile } from '@/hooks/useTaxProfile';
+import { computeMonthSummary } from '@/lib/calc/monthSummary';
 import { computeShiftGross } from '@/lib/calc/grossEngine';
+import type { ShiftGrossResult } from '@/lib/calc/types';
 import { shiftRowToInput, workplaceToRateProfile } from '@/lib/calc/adapters';
 import { isStatutoryHolidayDate } from '@/lib/calc';
-import { formatCurrency } from '@/lib/format';
+import {
+  dayMetricAriaLabel,
+  dayMetricDisplay,
+  parseShiftMetric,
+  shiftMetricDisplay,
+  type ShiftMetric,
+} from '@/lib/shiftMetrics';
 import { getMonthGridDays } from '@/lib/calendarGrid';
+import { usePeriodStore } from '@/store/periodStore';
+import { payPeriodRange, payPeriodRangeLabel } from '@/lib/payPeriod';
 import {
   todayIso,
-  monthRange,
+  formatDayLabel,
+  MONTH_NAMES_HE,
   WEEKDAY_NAMES_HE as weekdayNames,
   WEEKDAY_SHORT_HE as weekdayShort,
 } from '@/lib/date';
 
 type ViewMode = 'calendar' | 'list';
 const VIEW_STORAGE_KEY = 'clockly-shifts-view';
+const METRIC_STORAGE_KEY = 'clockly-shift-metric';
 
 export function ShiftsPage() {
   const navigate = useNavigate();
-  const now = new Date();
-  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  // Month and selected day are shared app-wide (see periodStore) so opening a shift and coming
+  // back — or saving one — returns to where you were instead of snapping to the current month.
+  const year = usePeriodStore((s) => s.year);
+  const month = usePeriodStore((s) => s.month);
+  const setPeriod = usePeriodStore((s) => s.setPeriod);
+  const selectedDate = usePeriodStore((s) => s.selectedDate);
+  const setSelectedDate = usePeriodStore((s) => s.setSelectedDate);
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEW_STORAGE_KEY) as ViewMode) || 'calendar'
   );
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const { start, end } = monthRange(cursor.year, cursor.month);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  // Shared by both views and remembered, like the calendar/list toggle above it.
+  const [metric, setMetric] = useState<ShiftMetric>(() => parseShiftMetric(localStorage.getItem(METRIC_STORAGE_KEY)));
 
-  const { data: shifts = [], isLoading } = useShiftsForRange(start, end);
   const { data: workplaces = [] } = useWorkplaces();
+  const { data: taxProfile } = useTaxProfile();
+
+  // Windowed by pay period, matching the dashboard and reports screens. Previously this screen
+  // used a plain calendar month, so a user with a custom start day (e.g. 15->14) saw a different
+  // set of shifts here than the totals those screens reported for the same month.
+  const startDay = taxProfile?.pay_period_start_day ?? 1;
+  const period = payPeriodRange(year, month, startDay);
+  const { data: shifts = [], isLoading } = useShiftsForRange(period.start, period.end, !!taxProfile);
 
   const workplaceMap = useMemo(() => new Map(workplaces.map((w) => [w.id, w])), [workplaces]);
 
@@ -51,9 +80,19 @@ export function ShiftsPage() {
     [shiftsByDate]
   );
 
+  const summary = useMemo(() => {
+    if (!taxProfile || workplaces.length === 0) return null;
+    return computeMonthSummary(workplaces, shifts, taxProfile);
+  }, [workplaces, shifts, taxProfile]);
+
   function changeView(mode: ViewMode) {
     setViewMode(mode);
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
+  }
+
+  function changeMetric(next: ShiftMetric) {
+    setMetric(next);
+    localStorage.setItem(METRIC_STORAGE_KEY, next);
   }
 
   const selectedDayShifts = selectedDate ? (shiftsByDate.get(selectedDate) ?? []) : [];
@@ -62,51 +101,71 @@ export function ShiftsPage() {
     <PageTransition>
       <div className="flex flex-col gap-4">
         <MonthNavigator
-          year={cursor.year}
-          month={cursor.month}
-          onChange={(year, month) => {
-            setSelectedDate(null);
-            setCursor({ year, month });
-          }}
+          year={year}
+          month={month}
+          onChange={setPeriod}
+          subLabel={
+            startDay !== 1 ? (
+              <span className="text-xs text-black/40 dark:text-white/40" dir="ltr">
+                {payPeriodRangeLabel(period)}
+              </span>
+            ) : undefined
+          }
         />
 
-        <div className="flex justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 justify-center gap-1 rounded-2xl bg-black/5 p-1 dark:bg-white/10">
+            <button
+              onClick={() => changeView('calendar')}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                viewMode === 'calendar' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
+              }`}
+            >
+              <Calendar size={16} /> לוח שנה
+            </button>
+            <button
+              onClick={() => changeView('list')}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                viewMode === 'list' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
+              }`}
+            >
+              <List size={16} /> רשימה
+            </button>
+          </div>
+
           <button
-            onClick={() => changeView('calendar')}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
-              viewMode === 'calendar' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
-            }`}
+            type="button"
+            onClick={() => setSummaryOpen(true)}
+            disabled={!summary}
+            aria-label="סיכום החודש"
+            className="flex min-h-11 items-center gap-1.5 rounded-2xl bg-brand-500/10 px-3.5 text-sm font-medium text-brand-600 disabled:opacity-40 dark:text-brand-400"
           >
-            <Calendar size={16} /> לוח שנה
-          </button>
-          <button
-            onClick={() => changeView('list')}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-medium transition-colors ${
-              viewMode === 'list' ? 'bg-white shadow-sm dark:bg-white/15' : 'text-black/50 dark:text-white/50'
-            }`}
-          >
-            <List size={16} /> רשימה
+            <ChartColumn size={16} /> סיכום
           </button>
         </div>
+
+        <MetricSwitcher metric={metric} onChange={changeMetric} />
 
         {isLoading ? (
           <p className="py-8 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
         ) : viewMode === 'calendar' ? (
           <>
             <MonthGrid
-              year={cursor.year}
-              month={cursor.month}
+              year={year}
+              month={month}
               shiftsByDate={shiftsByDate}
               workplaceMap={workplaceMap}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
+              metric={metric}
             />
             {selectedDate && (
               <SelectedDayPanel
                 date={selectedDate}
                 dayShifts={selectedDayShifts}
                 workplaceMap={workplaceMap}
-                onOpenShift={(id) => navigate(`/shifts/${id}/edit`)}
+                metric={metric}
+                onOpenShift={(id) => navigate(`/shifts/${id}`)}
                 onAddShift={() => navigate('/shifts/new', { state: { date: selectedDate } })}
               />
             )}
@@ -121,7 +180,7 @@ export function ShiftsPage() {
             {grouped.map(([date, dayShifts]) => (
               <div key={date}>
                 <p className="mb-1.5 px-1 text-xs font-medium text-black/40 dark:text-white/40">
-                  {weekdayNames[new Date(date).getDay()]}, {new Date(date).toLocaleDateString('he-IL')}
+                  {formatDayLabel(date)}
                 </p>
                 <div className="flex flex-col gap-2">
                   {dayShifts.map((shift) => (
@@ -129,7 +188,8 @@ export function ShiftsPage() {
                       key={shift.id}
                       shift={shift}
                       workplace={workplaceMap.get(shift.workplace_id)}
-                      onClick={() => navigate(`/shifts/${shift.id}/edit`)}
+                      metric={metric}
+                      onClick={() => navigate(`/shifts/${shift.id}`)}
                     />
                   ))}
                 </div>
@@ -137,6 +197,20 @@ export function ShiftsPage() {
             ))}
           </div>
         )}
+
+        <BottomSheet
+          open={summaryOpen}
+          title={`סיכום ${MONTH_NAMES_HE[month]} ${year}`}
+          onClose={() => setSummaryOpen(false)}
+        >
+          {summary ? (
+            <MonthSummaryDetails summary={summary} />
+          ) : (
+            <Card className="py-8 text-center text-sm text-black/40 dark:text-white/40">
+              אין נתונים לחודש זה
+            </Card>
+          )}
+        </BottomSheet>
       </div>
     </PageTransition>
   );
@@ -145,10 +219,12 @@ export function ShiftsPage() {
 function ShiftRow({
   shift,
   workplace,
+  metric,
   onClick,
 }: {
   shift: ShiftWithBreaks;
   workplace: Workplace | undefined;
+  metric: ShiftMetric;
   onClick: () => void;
 }) {
   const input = shiftRowToInput(shift);
@@ -165,7 +241,7 @@ function ShiftRow({
             </p>
           </div>
         </div>
-        {gross && <span className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>}
+        {gross && <span className="text-sm font-semibold">{shiftMetricDisplay(metric, gross)}</span>}
       </Card>
     </button>
   );
@@ -178,6 +254,7 @@ function MonthGrid({
   workplaceMap,
   selectedDate,
   onSelectDate,
+  metric,
 }: {
   year: number;
   month: number;
@@ -185,9 +262,27 @@ function MonthGrid({
   workplaceMap: Map<string, Workplace>;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
+  metric: ShiftMetric;
 }) {
   const days = useMemo(() => getMonthGridDays(year, month), [year, month]);
   const today = todayIso();
+
+  // Computed once per data change rather than per render: a month grid is ~35 cells, and
+  // running the gross engine for each of them on every re-render (metric switch, day select)
+  // is work the user pays for on a phone.
+  const grossByDate = useMemo(() => {
+    const map = new Map<string, ShiftGrossResult[]>();
+    for (const [date, dayShifts] of shiftsByDate) {
+      const results: ShiftGrossResult[] = [];
+      for (const shift of dayShifts) {
+        const workplace = workplaceMap.get(shift.workplace_id);
+        const input = shiftRowToInput(shift);
+        if (workplace && input) results.push(computeShiftGross(input, workplaceToRateProfile(workplace)));
+      }
+      map.set(date, results);
+    }
+    return map;
+  }, [shiftsByDate, workplaceMap]);
 
   // A true 44px touch target per cell isn't physically achievable in a 7-column grid on the
   // narrowest supported phones (360px) with any reasonable margins — even zero padding only
@@ -211,13 +306,20 @@ function MonthGrid({
           const isSelected = selectedDate === day.iso;
           const isToday = day.iso === today;
 
+          // Formatted by the same pure module the list rows use, so the two views can never
+          // disagree about what a metric means.
+          const dayGross = grossByDate.get(day.iso) ?? [];
+          const value = day.isCurrentMonth ? dayMetricDisplay(metric, dayGross) : null;
+          const valueLabel = day.isCurrentMonth ? dayMetricAriaLabel(metric, dayGross) : null;
+
           return (
             <button
               key={day.iso}
               type="button"
               onClick={() => onSelectDate(day.iso)}
               disabled={!day.isCurrentMonth}
-              className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-xl text-xs transition-colors ${
+              aria-label={`${weekdayNames[dow]} ${day.dayOfMonth}${valueLabel ? `, ${valueLabel}` : ''}`}
+              className={`flex aspect-square flex-col items-center justify-center gap-px rounded-xl text-xs transition-colors ${
                 !day.isCurrentMonth
                   ? 'text-black/15 dark:text-white/15'
                   : isSelected
@@ -228,12 +330,22 @@ function MonthGrid({
               }`}
             >
               <span className={isToday && !isSelected ? 'font-bold text-brand-500' : ''}>{day.dayOfMonth}</span>
+              {value !== null && (
+                <span
+                  dir="ltr"
+                  className={`text-[9px] font-semibold leading-none ${
+                    isSelected ? 'text-white' : 'text-brand-600 dark:text-brand-400'
+                  }`}
+                >
+                  {value}
+                </span>
+              )}
               {dayShifts.length > 0 && (
                 <span className="flex gap-0.5">
                   {dayShifts.slice(0, 3).map((s) => (
                     <span
                       key={s.id}
-                      className="h-1.5 w-1.5 rounded-full"
+                      className="h-1 w-1 rounded-full"
                       style={{ backgroundColor: isSelected ? 'white' : (workplaceMap.get(s.workplace_id)?.color ?? '#999') }}
                     />
                   ))}
@@ -251,12 +363,14 @@ function SelectedDayPanel({
   date,
   dayShifts,
   workplaceMap,
+  metric,
   onOpenShift,
   onAddShift,
 }: {
   date: string;
   dayShifts: ShiftWithBreaks[];
   workplaceMap: Map<string, Workplace>;
+  metric: ShiftMetric;
   onOpenShift: (id: string) => void;
   onAddShift: () => void;
 }) {
@@ -264,7 +378,7 @@ function SelectedDayPanel({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between px-1">
         <p className="text-xs font-medium text-black/40 dark:text-white/40">
-          {weekdayNames[new Date(date).getDay()]}, {new Date(date).toLocaleDateString('he-IL')}
+          {formatDayLabel(date)}
         </p>
         <button onClick={onAddShift} className="flex items-center gap-1 text-xs font-medium text-brand-500">
           <Plus size={14} /> הוספת משמרת
@@ -279,6 +393,7 @@ function SelectedDayPanel({
               key={shift.id}
               shift={shift}
               workplace={workplaceMap.get(shift.workplace_id)}
+              metric={metric}
               onClick={() => onOpenShift(shift.id)}
             />
           ))}

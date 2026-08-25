@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useMemo, useRef, useState } from 'react';
+import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Info, Moon, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { useAllWorkplaces, useWorkplaces, type Workplace } from '@/hooks/useWorkplaces';
+import { useGoBack } from '@/hooks/useGoBack';
 import {
   useCreateShift,
   useCreateShifts,
@@ -20,6 +21,7 @@ import {
 import { DEFAULT_RATES, computeShiftGross, isShiftFullyInShabbat, shiftPartiallyOverlapsShabbat, statutoryHolidayName } from '@/lib/calc';
 import { workplaceToRateProfile } from '@/lib/calc/adapters';
 import { formatCurrency } from '@/lib/format';
+import { formValueToNumber, numberToFormValue } from '@/lib/formNumber';
 import { todayIso, weeklyOccurrences } from '@/lib/date';
 import { DAY_TYPE_LABELS_HE } from '@/lib/labels';
 
@@ -62,7 +64,7 @@ function travelDefaultFor(workplace: { travel_daily_cost: number | null }): numb
 export function ShiftFormPage() {
   const { id } = useParams();
   const isEdit = !!id;
-  const navigate = useNavigate();
+  const goBack = useGoBack(id ? `/shifts/${id}` : '/shifts');
 
   const { data: existing } = useShift(id);
   const { data: workplaces = [], isLoading: loadingWorkplaces } = useWorkplaces();
@@ -75,7 +77,7 @@ export function ShiftFormPage() {
     return (
       <PageTransition>
         <div className="flex flex-col gap-4">
-          <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+          <FormHeader isEdit={isEdit} onBack={goBack} />
           <p className="py-12 text-center text-sm text-black/40 dark:text-white/40">טוען...</p>
         </div>
       </PageTransition>
@@ -133,21 +135,15 @@ function ShiftForm({
   const [startTime, setStartTime] = useState(existing ? existing.start_time.slice(0, 5) : '09:00');
   const [endTime, setEndTime] = useState(existing ? (existing.end_time?.slice(0, 5) ?? '17:00') : '17:00');
   const [dayTypeChoice, setDayTypeChoice] = useState<DayTypeChoice>(existing ? (existing.day_type as DayType) : 'auto');
-  const [bonuses, setBonuses] = useState(existing ? String(existing.bonuses) : '0');
-  const [tips, setTips] = useState(existing ? String(existing.tips) : '0');
+  const [bonuses, setBonuses] = useState(numberToFormValue(existing?.bonuses));
+  const [tips, setTips] = useState(numberToFormValue(existing?.tips));
   const [travel, setTravel] = useState(
-    existing
-      ? String(existing.travel_reimbursement)
-      : defaultWorkplace
-        ? String(travelDefaultFor(defaultWorkplace))
-        : '0'
+    numberToFormValue(
+      existing ? existing.travel_reimbursement : defaultWorkplace ? travelDefaultFor(defaultWorkplace) : 0
+    )
   );
   const [meal, setMeal] = useState(
-    existing
-      ? String(existing.meal_deduction)
-      : defaultWorkplace?.meal_deduction_default != null
-        ? String(defaultWorkplace.meal_deduction_default)
-        : '0'
+    numberToFormValue(existing ? existing.meal_deduction : (defaultWorkplace?.meal_deduction_default ?? 0))
   );
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [breaks, setBreaks] = useState<BreakField[]>(
@@ -172,6 +168,33 @@ function ShiftForm({
     () => shiftPartiallyOverlapsShabbat(date, startTime, endTime, crossesMidnight),
     [date, startTime, endTime, crossesMidnight]
   );
+
+  // Paging is the first action in this form that can discard edits without leaving the screen,
+  // so it has to know whether anything changed. Compared against a snapshot taken on mount;
+  // the component is keyed by shift id, so it remounts (and re-snapshots) per shift.
+  const currentSnapshot = JSON.stringify({
+    workplaceId, date, startTime, endTime, dayTypeChoice, bonuses, tips, travel, meal, notes, breaks,
+  });
+  const [initialSnapshot] = useState(() => currentSnapshot);
+  const isDirty = currentSnapshot !== initialSnapshot;
+
+  // Set immediately before a navigation the user already consented to (saving, deleting), so the
+  // blocker below lets it through instead of asking about changes they just committed.
+  const skipGuard = useRef(false);
+
+  /**
+   * Guards every way out of the form, not just paging between shifts: the in-app back arrow, a
+   * bottom-nav tab, the browser Back button, and the Android system Back button in the installed
+   * PWA all route through here. Intercepting a Back navigation is the reason the app uses a data
+   * router at all — see the note in App.tsx.
+   */
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (skipGuard.current) return false;
+    return isDirty && currentLocation.pathname !== nextLocation.pathname;
+  });
+
+  // Same guard. This is a real navigation, so the blocker above still intercepts it when dirty.
+  const goBack = useGoBack(isEdit && id ? `/shifts/${id}` : '/shifts');
 
   const selectedWorkplace = allWorkplaces.find((w) => w.id === workplaceId);
   const isSelectedWorkplaceArchived = isEdit && !!selectedWorkplace?.is_archived;
@@ -211,10 +234,10 @@ function ShiftForm({
     if (isEdit) return; // don't override a saved shift's own recorded travel/meal values
     const workplace = workplaces.find((w) => w.id === newWorkplaceId);
     if (workplace) {
-      setTravel(String(travelDefaultFor(workplace)));
+      setTravel(numberToFormValue(travelDefaultFor(workplace)));
     }
     if (workplace?.meal_deduction_default != null) {
-      setMeal(String(workplace.meal_deduction_default));
+      setMeal(numberToFormValue(workplace.meal_deduction_default));
     }
   }
 
@@ -227,16 +250,17 @@ function ShiftForm({
       start_time: startTime,
       end_time: endTime,
       crosses_midnight: crossesMidnight,
-      bonuses: Number(bonuses) || 0,
-      tips: Number(tips) || 0,
-      travel_reimbursement: Number(travel) || 0,
-      meal_deduction: Number(meal) || 0,
+      bonuses: formValueToNumber(bonuses),
+      tips: formValueToNumber(tips),
+      travel_reimbursement: formValueToNumber(travel),
+      meal_deduction: formValueToNumber(meal),
       other_deduction: 0,
       notes: notes || null,
       breaks,
     };
 
     try {
+      let createdId: string | null = null;
       if (isEdit && id) {
         await updateShift.mutateAsync({ id, ...baseValues, date, day_type: dayType });
       } else if (repeat === 'weekly' && repeatUntil) {
@@ -257,9 +281,14 @@ function ShiftForm({
         }));
         await createShifts.mutateAsync(valuesList);
       } else {
-        await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
+        const created = await createShift.mutateAsync({ ...baseValues, date, day_type: dayType });
+        createdId = created.id;
       }
-      navigate('/shifts');
+      skipGuard.current = true;
+      // Back to the shift's summary so the user immediately sees what the edit did. A recurring
+      // batch has no single shift to show, so that returns to the list.
+      const destination = isEdit && id ? `/shifts/${id}` : createdId ? `/shifts/${createdId}` : '/shifts';
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'משהו השתבש, נסה/י שוב');
     }
@@ -268,6 +297,7 @@ function ShiftForm({
   async function handleDelete() {
     if (id) {
       await deleteShift.mutateAsync(id);
+      skipGuard.current = true;
       navigate('/shifts');
     }
   }
@@ -275,7 +305,7 @@ function ShiftForm({
   return (
     <PageTransition>
       <div className="flex flex-col gap-4">
-        <FormHeader isEdit={isEdit} onBack={() => navigate(-1)} />
+        <FormHeader isEdit={isEdit} onBack={goBack} />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Card className="flex flex-col gap-3">
@@ -476,10 +506,38 @@ function ShiftForm({
           <Card className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold">תוספות וניכויים</h2>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="בונוס (₪)" type="number" value={bonuses} onChange={(e) => setBonuses(e.target.value)} />
-              <Input label="טיפים (₪)" type="number" value={tips} onChange={(e) => setTips(e.target.value)} />
-              <Input label="נסיעות (₪)" type="number" value={travel} onChange={(e) => setTravel(e.target.value)} />
-              <Input label="ניכוי ארוחות (₪)" type="number" value={meal} onChange={(e) => setMeal(e.target.value)} />
+              <Input
+                label="בונוס (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={bonuses}
+                onChange={(e) => setBonuses(e.target.value)}
+              />
+              <Input
+                label="טיפים (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={tips}
+                onChange={(e) => setTips(e.target.value)}
+              />
+              <Input
+                label="נסיעות (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={travel}
+                onChange={(e) => setTravel(e.target.value)}
+              />
+              <Input
+                label="ניכוי ארוחות (₪)"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={meal}
+                onChange={(e) => setMeal(e.target.value)}
+              />
             </div>
             <p className="-mt-2 text-xs text-black/40 dark:text-white/40">
               דמי הנסיעות וניכוי הארוחות ממולאים אוטומטית לפי ההגדרות במקום העבודה (דמי
@@ -509,6 +567,16 @@ function ShiftForm({
             </Button>
           )}
         </form>
+
+        <ConfirmDialog
+          open={blocker.state === 'blocked'}
+          title="יש שינויים שלא נשמרו"
+          message="היציאה מהמסך תבטל את השינויים שביצעת במשמרת הזו."
+          confirmLabel="יציאה בלי לשמור"
+          cancelLabel="הישארות"
+          onConfirm={() => blocker.proceed?.()}
+          onCancel={() => blocker.reset?.()}
+        />
 
         <ConfirmDialog
           open={confirmDelete}

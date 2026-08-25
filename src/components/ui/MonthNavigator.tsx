@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, ChevronLeft, ChevronDown, CornerUpRight } from 'lucide-react';
-import { MONTH_NAMES_HE } from '@/lib/date';
+import { MONTH_NAMES_HE, stepMonth } from '@/lib/date';
 
 interface MonthNavigatorProps {
   /** Full year, e.g. 2026. */
@@ -27,10 +27,8 @@ export function MonthNavigator({ year, month, onChange, subLabel }: MonthNavigat
   const isCurrentMonth = year === currentYear && month === currentMonth;
 
   function step(delta: 1 | -1) {
-    const m = month + delta;
-    if (m < 0) onChange(year - 1, 11);
-    else if (m > 11) onChange(year + 1, 0);
-    else onChange(year, m);
+    const next = stepMonth(year, month, delta);
+    onChange(next.year, next.month);
   }
 
   return (
