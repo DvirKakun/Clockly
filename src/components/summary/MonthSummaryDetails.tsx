@@ -112,7 +112,9 @@ function NetPanel({ takeHomePay, travelReimbursement }: { takeHomePay: number; t
   return (
     <div className="rounded-3xl border border-brand-500/20 bg-brand-500/10 p-4">
       <p className="text-sm font-medium text-black/60 dark:text-white/60">נטו לתשלום</p>
-      <p className="mt-1 text-3xl font-bold text-brand-600 dark:text-brand-400">{formatCurrency(takeHomePay)}</p>
+      <p dir="ltr" className="mt-1 text-end text-3xl font-bold text-brand-600 dark:text-brand-400">
+        {formatCurrency(takeHomePay)}
+      </p>
       <p className="mt-2 text-xs text-black/50 dark:text-white/50">
         כולל החזר נסיעות של {formatCurrency(travelReimbursement)}, שאינו חייב במס
       </p>
@@ -131,7 +133,9 @@ export function SummaryRow({ label, value, alwaysShow = false }: { label: string
   return (
     <div className="flex justify-between py-1 text-sm">
       <span className="text-black/60 dark:text-white/60">{label}</span>
-      <span className={isDeduction ? 'font-medium text-red-500' : 'font-medium'}>
+      {/* dir="ltr" or the bidi algorithm moves the leading minus to the visual right in this
+          RTL page, rendering "-₪15" as "₪15-". */}
+      <span dir="ltr" className={isDeduction ? 'font-medium text-red-500' : 'font-medium'}>
         {isDeduction ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
       </span>
     </div>
@@ -142,7 +146,7 @@ function TotalRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
       <span>{label}</span>
-      <span>{value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}</span>
+      <span dir="ltr">{value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}</span>
     </div>
   );
 }

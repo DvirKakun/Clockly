@@ -183,7 +183,7 @@ export function ShiftDetailPage() {
                   <span className="w-16 shrink-0 text-end text-xs tabular-nums text-black/40 dark:text-white/40" dir="ltr">
                     {tier.hours !== undefined ? `${tier.hours.toFixed(2)}h` : ''}
                   </span>
-                  <span className="w-[4.5rem] shrink-0 text-end font-medium tabular-nums">
+                  <span dir="ltr" className="w-[4.5rem] shrink-0 text-end font-medium tabular-nums">
                     {formatCurrency(tier.amount)}
                   </span>
                 </div>
@@ -194,7 +194,9 @@ export function ShiftDetailPage() {
                   {breakdown.adjustments.map((adj) => (
                     <div key={adj.key} className="flex items-baseline gap-2 py-1 text-sm">
                       <span className="min-w-0 flex-1 text-black/60 dark:text-white/60">{adj.label}</span>
+                      {/* dir="ltr" keeps the minus on the left of the figure in this RTL page. */}
                       <span
+                        dir="ltr"
                         className={`w-[4.5rem] shrink-0 text-end tabular-nums ${
                           adj.amount < 0 ? 'font-medium text-red-500' : 'font-medium'
                         }`}
@@ -210,7 +212,9 @@ export function ShiftDetailPage() {
 
               <div className="mt-2 flex items-baseline gap-2 border-t border-black/10 pt-2 text-base font-bold dark:border-white/10">
                 <span className="min-w-0 flex-1">סה&quot;כ למשמרת</span>
-                <span className="w-[4.5rem] shrink-0 text-end tabular-nums">{formatCurrency(breakdown.totalGross)}</span>
+                <span dir="ltr" className="w-[4.5rem] shrink-0 text-end tabular-nums">
+                  {formatCurrency(breakdown.totalGross)}
+                </span>
               </div>
             </Card>
           </>

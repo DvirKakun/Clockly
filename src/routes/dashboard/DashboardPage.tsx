@@ -202,7 +202,7 @@ function DeductionRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex justify-between py-1 text-sm">
       <span className="text-black/60 dark:text-white/60">{label}</span>
-      <span className="font-medium text-red-500">-{formatCurrency(value)}</span>
+      <span dir="ltr" className="font-medium text-red-500">-{formatCurrency(value)}</span>
     </div>
   );
 }

@@ -199,7 +199,7 @@ export function ReportsPage() {
                 <SummaryRow label="פנסיה" value={-workplaceExpected.pension} />
                 <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-sm font-bold dark:border-white/10">
                   <span>נטו לתשלום</span>
-                  <span>{formatCurrency(workplaceExpected.net)}</span>
+                  <span dir="ltr">{formatCurrency(workplaceExpected.net)}</span>
                 </div>
                 {hasMultipleWorkplaces && (
                   <p className="mt-3 rounded-2xl bg-black/[0.03] px-3 py-2 text-xs text-black/50 dark:bg-white/[0.04] dark:text-white/50">
@@ -248,7 +248,7 @@ export function ReportsPage() {
                     <span className="text-xs font-medium text-black/50 dark:text-white/50" dir="ltr">
                       {gross.totalHours.toFixed(1)}h
                     </span>
-                    <span>{formatCurrency(gross.totalGross)}</span>
+                    <span dir="ltr">{formatCurrency(gross.totalGross)}</span>
                   </span>
                 </div>
               </Card>
@@ -302,7 +302,7 @@ function ReportShiftRow({
               </span>
             )}
           </span>
-          <span className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>
+          <span dir="ltr" className="text-sm font-semibold">{formatCurrency(gross.totalGross)}</span>
         </div>
 
         <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-black/50 dark:text-white/50">
@@ -310,7 +310,10 @@ function ReportShiftRow({
           {breakLabel && <span>הפסקה {breakLabel}</span>}
           {breakdown.adjustments.map((adj) => (
             <span key={adj.key} className={adj.amount < 0 ? 'text-red-500/80' : undefined}>
-              {adj.label} {adj.amount < 0 ? `-${formatCurrency(Math.abs(adj.amount))}` : formatCurrency(adj.amount)}
+              {adj.label}{' '}
+              <span dir="ltr">
+                {adj.amount < 0 ? `-${formatCurrency(Math.abs(adj.amount))}` : formatCurrency(adj.amount)}
+              </span>
             </span>
           ))}
         </div>
